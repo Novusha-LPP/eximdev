@@ -377,8 +377,9 @@ function DoPlanning() {
 
   // ✅ Simple WebSocket implementation
   useEffect(() => {
-    const SOCKET_URL = `ws://${process.env.REACT_APP_SOCKET_URL || "0.0.0.0:9006"
-      }`;
+    const rawSocketHost = (process.env.REACT_APP_SOCKET_URL || "localhost:9006").replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const SOCKET_URL = `${protocol}//${rawSocketHost}`;
     console.log("🔗 Connecting to DO Billing WebSocket:", SOCKET_URL);
 
     let socket = null;

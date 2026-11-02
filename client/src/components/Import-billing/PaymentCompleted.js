@@ -28,6 +28,7 @@ import SearchIcon from "@mui/icons-material/Search";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import AttachFileIcon from "@mui/icons-material/AttachFile";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
+import EditIcon from "@mui/icons-material/Edit";
 import { YearContext } from "../../contexts/yearContext.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext.js";
 import { UserContext } from "../../contexts/UserContext.js";
@@ -86,6 +87,20 @@ function PaymentCompleted({ workMode = "Payment" }) {
   const [isModalLoading, setIsModalLoading] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
+
+  // IP-3: Edit/Correct Payment state
+  const [openEditModal, setOpenEditModal] = useState(false);
+  const [editPaymentData, setEditPaymentData] = useState(null);
+  const [editUtrInput, setEditUtrInput] = useState("");
+  const [editBankFromInput, setEditBankFromInput] = useState("");
+  const [editStatusInput, setEditStatusInput] = useState("Paid");
+  const [editReasonInput, setEditReasonInput] = useState("");
+  const [editReceiptUrl, setEditReceiptUrl] = useState("");
+  const [editSelectedReceipt, setEditSelectedReceipt] = useState(null);
+  const [isUploadingEditReceipt, setIsUploadingEditReceipt] = useState(false);
+  const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
+
+  const canEditPayment = user?.role === "Admin" || user?.role === "Accounts" || user?.role === "Super Admin" || user?.department === "Accounts" || !user;
 
   // Persist filter states to sessionStorage
   useEffect(() => {
@@ -329,6 +344,98 @@ function PaymentCompleted({ workMode = "Payment" }) {
     setOpenDetailModal(true);
     await fetchPaymentRequestDetails(requestNo);
     setIsModalLoading(false);
+  };
+
+  const handleOpenEditModal = async (requestNo, e) => {
+    if (e && e.stopPropagation) e.stopPropagation();
+    try {
+      setIsModalLoading(true);
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/api/get-payment-request-details/${encodeURIComponent(requestNo)}`
+      );
+      const data = res.data;
+      setEditPaymentData(data);
+      setEditUtrInput(data.utrNumber || "");
+      setEditBankFromInput(data.bankFrom || "");
+      setEditStatusInput(data.status || "Paid");
+      setEditReasonInput("");
+      setEditReceiptUrl(data.paymentReceiptUrl || "");
+      setEditSelectedReceipt(null);
+      setOpenEditModal(true);
+    } catch (err) {
+      console.error("Error fetching payment request details for edit:", err);
+      alert("Failed to load payment details for editing.");
+    } finally {
+      setIsModalLoading(false);
+    }
+  };
+
+  const handleSavePaymentEdit = async () => {
+    if (editStatusInput === "Paid" && (!editUtrInput.trim() || !editBankFromInput)) {
+      alert("Please enter both UTR Number and Bank From for Paid status.");
+      return;
+    }
+    if (!editReasonInput.trim()) {
+      alert("Please enter a reason for this correction.");
+      return;
+    }
+
+    setIsSubmittingEdit(true);
+    try {
+      let finalReceiptUrl = editReceiptUrl;
+      if (editSelectedReceipt) {
+        setIsUploadingEditReceipt(true);
+        const formData = new FormData();
+        formData.append("files", editSelectedReceipt);
+        formData.append("bucketPath", "payment-receipts");
+        const uploadRes = await axios.post(`${process.env.REACT_APP_API_STRING}/upload`, formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        if (uploadRes.data.urls && uploadRes.data.urls.length > 0) {
+          finalReceiptUrl = uploadRes.data.urls[0];
+        }
+        setIsUploadingEditReceipt(false);
+      }
+
+      const endpoint = workMode === "Purchase Book" ? "edit-purchase-entry-payment" : "edit-payment-request-payment";
+      const displayName = user ? `${user.first_name} ${user.last_name}` : (localStorage.getItem("username") || "Admin");
+
+      await axios.patch(`${process.env.REACT_APP_API_STRING}/${endpoint}`, {
+        requestNo: editPaymentData.requestNo,
+        utrNumber: editStatusInput === "Approved" ? "" : editUtrInput.trim(),
+        bankFrom: editStatusInput === "Approved" ? "" : editBankFromInput,
+        status: editStatusInput,
+        paymentReceiptUrl: editStatusInput === "Approved" ? "" : finalReceiptUrl,
+        reason: editReasonInput.trim(),
+      }, {
+        headers: { username: displayName }
+      });
+
+      alert("Payment details successfully updated!");
+      setOpenEditModal(false);
+      if (openDetailModal) {
+        setOpenDetailModal(false);
+      }
+      const { start, end } = calculateDates();
+      fetchJobs(
+        page,
+        debouncedSearchQuery,
+        selectedImporter,
+        selectedYearState,
+        user?.username,
+        selectedBranch,
+        selectedCategory,
+        start,
+        end,
+        selectedTransactionType
+      );
+    } catch (err) {
+      console.error("Error editing payment:", err);
+      alert(err?.response?.data?.message || "Failed to update payment details.");
+    } finally {
+      setIsSubmittingEdit(false);
+      setIsUploadingEditReceipt(false);
+    }
   };
 
   // Get importer list for MUI autocomplete
@@ -858,6 +965,16 @@ function PaymentCompleted({ workMode = "Payment" }) {
                             title={workMode === "Payment" ? "View Payment Receipt" : "View Purchase Receipt"}
                           >
                             <OpenInNewIcon sx={{ fontSize: '14px' }} />
+                          </IconButton>
+                        )}
+                        {canEditPayment && (
+                          <IconButton
+                            size="small"
+                            onClick={(e) => handleOpenEditModal(no, e)}
+                            sx={{ p: 0, color: '#1976d2', ml: 0.5 }}
+                            title="Edit / Correct Payment Details"
+                          >
+                            <EditIcon sx={{ fontSize: '14px' }} />
                           </IconButton>
                         )}
                       </Box>
@@ -1528,6 +1645,18 @@ function PaymentCompleted({ workMode = "Payment" }) {
           )}
         </DialogContent>
         <DialogActions sx={{ p: 1, borderTop: '1px solid #ccc' }}>
+          {canEditPayment && selectedPaymentRequest && (
+            <Button
+              onClick={() => handleOpenEditModal(selectedPaymentRequest.requestNo)}
+              size="small"
+              variant="contained"
+              color="warning"
+              startIcon={<EditIcon />}
+              sx={{ fontWeight: 'bold' }}
+            >
+              Edit / Correct Payment
+            </Button>
+          )}
           <Button 
             onClick={() => {
               generatePurchaseBookPDF(selectedPaymentRequest, logo);
@@ -1538,6 +1667,148 @@ function PaymentCompleted({ workMode = "Payment" }) {
             Print
           </Button>
           <Button onClick={() => setOpenDetailModal(false)} size="small" variant="contained">Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* IP-3: Edit / Correct Payment Modal */}
+      <Dialog
+        open={openEditModal}
+        onClose={() => !isSubmittingEdit && setOpenEditModal(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '8px' } }}
+      >
+        <DialogTitle sx={{ backgroundColor: '#1976d2', color: 'white', fontWeight: 'bold', py: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <EditIcon sx={{ fontSize: '1.2rem' }} />
+            <Typography variant="subtitle1" fontWeight="bold">
+              Edit / Correct Payment: {editPaymentData?.requestNo}
+            </Typography>
+          </Box>
+          <Chip
+            label={editStatusInput}
+            size="small"
+            color={editStatusInput === "Paid" ? "success" : "warning"}
+            sx={{ color: 'white', fontWeight: 'bold' }}
+          />
+        </DialogTitle>
+        <DialogContent sx={{ p: 2.5, mt: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Box sx={{ p: 1.5, backgroundColor: '#f0f7ff', borderRadius: '4px', border: '1px solid #c2e0ff' }}>
+            <Typography variant="caption" sx={{ color: '#0d47a1', display: 'block', fontWeight: 'bold' }}>
+              PAYMENT CORRECTION NOTICE
+            </Typography>
+            <Typography variant="caption" sx={{ color: '#333' }}>
+              You can correct the UTR number, bank, receipt, or revert the status to "Approved" if marked as paid by mistake. All corrections are logged with your username and timestamp.
+            </Typography>
+          </Box>
+
+          <TextField
+            select
+            fullWidth
+            size="small"
+            label="Payment Status"
+            value={editStatusInput}
+            onChange={(e) => setEditStatusInput(e.target.value)}
+            variant="outlined"
+          >
+            <MenuItem value="Paid">Paid (Keep as Completed / Paid)</MenuItem>
+            <MenuItem value="Approved">Approved (Revert to Pending Payment)</MenuItem>
+          </TextField>
+
+          {editStatusInput === "Paid" && (
+            <>
+              <TextField
+                select
+                fullWidth
+                size="small"
+                label="Bank From"
+                variant="outlined"
+                value={editBankFromInput}
+                onChange={(e) => setEditBankFromInput(e.target.value)}
+                required
+              >
+                <MenuItem value="KOTAK BANK">KOTAK BANK</MenuItem>
+                <MenuItem value="IDBI BANK">IDBI BANK</MenuItem>
+                <MenuItem value="SOUTH INDIAN BANK">SOUTH INDIAN BANK</MenuItem>
+                <MenuItem value="AXIS BANK">AXIS BANK</MenuItem>
+                <MenuItem value="ODEX VAN">ODEX VAN</MenuItem>
+                <MenuItem value="CASH">CASH</MenuItem>
+              </TextField>
+
+              <TextField
+                fullWidth
+                size="small"
+                label="UTR Number"
+                variant="outlined"
+                value={editUtrInput}
+                onChange={(e) => setEditUtrInput(e.target.value)}
+                required
+                placeholder="Enter correct UTR number"
+              />
+
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, border: '1px dashed #ccc', p: 1.5, borderRadius: '4px' }}>
+                <Button
+                  variant="outlined"
+                  component="label"
+                  size="small"
+                  startIcon={<AttachFileIcon />}
+                  sx={{ textTransform: 'none' }}
+                >
+                  {editSelectedReceipt ? "Change New Receipt" : (editReceiptUrl ? "Replace Current Receipt" : "Attach Receipt")}
+                  <input
+                    type="file"
+                    hidden
+                    onChange={(e) => setEditSelectedReceipt(e.target.files[0])}
+                  />
+                </Button>
+                {editSelectedReceipt ? (
+                  <Typography variant="caption" sx={{ color: 'text.secondary', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {editSelectedReceipt.name}
+                  </Typography>
+                ) : editReceiptUrl ? (
+                  <Button
+                    size="small"
+                    href={editReceiptUrl}
+                    target="_blank"
+                    startIcon={<OpenInNewIcon />}
+                    sx={{ textTransform: 'none', fontSize: '0.75rem' }}
+                  >
+                    View Existing Receipt
+                  </Button>
+                ) : (
+                  <Typography variant="caption" color="text.secondary">No receipt attached</Typography>
+                )}
+              </Box>
+            </>
+          )}
+
+          <TextField
+            fullWidth
+            multiline
+            rows={2}
+            size="small"
+            label="Reason for Correction *"
+            variant="outlined"
+            required
+            placeholder="State why this payment is being edited or reverted (required for audit trail)..."
+            value={editReasonInput}
+            onChange={(e) => setEditReasonInput(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 2, borderTop: '1px solid #eee' }}>
+          <Button onClick={() => setOpenEditModal(false)} disabled={isSubmittingEdit} size="small">
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSavePaymentEdit}
+            variant="contained"
+            color="primary"
+            size="small"
+            disabled={isSubmittingEdit || isUploadingEditReceipt || !editReasonInput.trim() || (editStatusInput === "Paid" && (!editUtrInput.trim() || !editBankFromInput))}
+            sx={{ fontWeight: 'bold' }}
+          >
+            {isSubmittingEdit || isUploadingEditReceipt ? <CircularProgress size={20} color="inherit" /> : "Save Changes"}
+          </Button>
         </DialogActions>
       </Dialog>
     </div>

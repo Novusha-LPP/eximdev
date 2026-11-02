@@ -431,31 +431,22 @@ function Stage3SupplierQuotation({ data, onChange, globalData, onGlobalChange })
             <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
               <TableCell>Step</TableCell>
               <TableCell>Action / Task</TableCell>
-              <TableCell>Responsible Person</TableCell>
               <TableCell>Date / Time</TableCell>
               <TableCell>Status</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {[
-              ["Quotations collected (min 2–3 per RM type)", "Purchase Officer"],
-              ["Document checklist verified for L1 supplier", "Purchase Officer"],
-              ["Sent to Pricing Team for validation", "Purchase Officer"],
-            ].map(([task, person], idx) => (
+              "Quotations collected (min 2–3 per RM type)",
+              "Document checklist verified for L1 supplier",
+              "Sent to Pricing Team for validation",
+            ].map((task, idx) => (
               <TableRow key={idx}>
                 <TableCell>{idx + 1}</TableCell>
                 <TableCell>
                   <TextField
                     value={actionLog[idx]?.actionTask || task}
                     onChange={(e) => updateActionLog(idx, "actionTask", e.target.value)}
-                    size="small"
-                    fullWidth
-                  />
-                </TableCell>
-                <TableCell>
-                  <TextField
-                    value={actionLog[idx]?.responsiblePerson || person}
-                    onChange={(e) => updateActionLog(idx, "responsiblePerson", e.target.value)}
                     size="small"
                     fullWidth
                   />

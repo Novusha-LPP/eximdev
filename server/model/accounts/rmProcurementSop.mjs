@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import auditPlugin from "../../plugins/auditPlugin.mjs";
 
-const statusEnum = [
+export const statusEnum = [
   "Draft",
   "Sales Order",
   "PR Raised",
@@ -23,6 +23,13 @@ const statusEnum = [
   "GRN Done",
   "Closed",
 ];
+
+export const statusEnumMap = statusEnum.reduce((acc, s) => {
+  acc[s.toUpperCase()] = s;
+  return acc;
+}, {
+  DRAFT: "Draft",
+});
 
 // ─── Sheet 1 ───
 const productLineSchema = new mongoose.Schema(
@@ -444,7 +451,15 @@ const rmProcurementSopSchema = new mongoose.Schema(
     salesOrderRefNo: String,
     status: {
       type: String,
-      enum: statusEnum,
+      set: (val) => {
+        if (!val) return "Draft";
+        const upper = String(val).trim().toUpperCase();
+        return statusEnumMap[upper] || val;
+      },
+      enum: [
+        ...statusEnum,
+        ...statusEnum.map((s) => s.toUpperCase()),
+      ],
       default: "Draft",
     },
     stage1: { type: stage1Schema, default: () => ({}) },
@@ -458,6 +473,14 @@ const rmProcurementSopSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+rmProcurementSopSchema.pre("validate", function (next) {
+  if (this.status) {
+    const upper = String(this.status).trim().toUpperCase();
+    this.status = statusEnumMap[upper] || this.status;
+  }
+  next();
+});
 
 rmProcurementSopSchema.plugin(auditPlugin, { documentType: "RmProcurementSop" });
 

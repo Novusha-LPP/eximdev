@@ -59,6 +59,12 @@ import {
 } from "@mui/icons-material";
 import { toast } from "react-hot-toast";
 import PoLandscapePdfGenerator from "./PoLandscapePdfGenerator";
+import ShowChart from "@mui/icons-material/ShowChart";
+import Assessment from "@mui/icons-material/Assessment";
+import Business from "@mui/icons-material/Business";
+import ProcurementPulseModal from "./ProcurementPulseModal";
+import ProcurementExcelReportModal from "./ProcurementExcelReportModal";
+import CompanyDirectoryModal from "./CompanyDirectoryModal";
 
 const columnInputSx = (isActive) => ({
   "& .MuiOutlinedInput-root": {
@@ -243,9 +249,9 @@ const getPrCreditInfo = (doc) => {
     supplierPayments.length > 0
       ? supplierPayments.every((sp) => Boolean(sp.isPaid && sp.utrNumber?.trim()))
       : Boolean(
-          (s4.paymentDetails?.paymentReferenceUtr?.trim() || s4.paymentDetails?.paymentDate) &&
-          doc.status !== "Finance Approved"
-        );
+        (s4.paymentDetails?.paymentReferenceUtr?.trim() || s4.paymentDetails?.paymentDate) &&
+        doc.status !== "Finance Approved"
+      );
 
   const invDateStr =
     s6.referenceInfos?.[0]?.invoiceDate ||
@@ -256,10 +262,10 @@ const getPrCreditInfo = (doc) => {
   const baseDate = invDateStr
     ? new Date(invDateStr)
     : s3.signOff?.dateOfApproval
-    ? new Date(s3.signOff.dateOfApproval)
-    : doc.createdAt
-    ? new Date(doc.createdAt)
-    : new Date();
+      ? new Date(s3.signOff.dateOfApproval)
+      : doc.createdAt
+        ? new Date(doc.createdAt)
+        : new Date();
 
   const dueDate = new Date(baseDate.getTime() + maxCreditDays * 24 * 60 * 60 * 1000);
   const now = new Date();
@@ -503,7 +509,7 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
   const [stageTab, setStageTab] = useState("0");
   const [loading, setLoading] = useState(false);
 
-  // Column Filters State (PR Number, PO Number, Prepared by, L1 supplier, Total Value, Status, Created at / Date / Month / Year)
+  // Column Filters State (PR Number, PO Number, Prepared by, L1 supplier, Total Value, Status, Date Range / Month / Year)
   const [filters, setFilters] = useState({
     prNumber: "",
     poNumber: "",
@@ -512,6 +518,8 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
     totalValue: "",
     status: "",
     date: "",
+    fromDate: "",
+    toDate: "",
     month: "",
     year: "",
   });
@@ -538,6 +546,8 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
       totalValue: "",
       status: "",
       date: "",
+      fromDate: "",
+      toDate: "",
       month: "",
       year: "",
     });
@@ -555,6 +565,11 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
   }, [search, filters]);
 
   const hasActiveFilters = activeFiltersCount > 0;
+
+  // Pulse, Excel Report & Company Directory Modal State
+  const [pulseOpen, setPulseOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [companyDirectoryOpen, setCompanyDirectoryOpen] = useState(false);
 
   // Invoice Documents Modal State
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
@@ -701,23 +716,23 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
           statuses: prev.statuses?.length
             ? prev.statuses
             : [
-                "Draft",
-                "PR Raised",
-                "Preparing for Quotation",
-                "HoD Validated",
-                "Quotation Received",
-                "Quotation Updated",
-                "Finance Approved",
-                "Payment Done",
-                "Order Placed",
-                "Dispatched",
-                "Dispatched / Site GRN Ready",
-                "GRN Ready",
-                "GRN Received",
-                "GRN Completed",
-                "GRN Done",
-                "Closed",
-              ],
+              "Draft",
+              "PR Raised",
+              "Preparing for Quotation",
+              "HoD Validated",
+              "Quotation Received",
+              "Quotation Updated",
+              "Finance Approved",
+              "Payment Done",
+              "Order Placed",
+              "Dispatched",
+              "Dispatched / Site GRN Ready",
+              "GRN Ready",
+              "GRN Received",
+              "GRN Completed",
+              "GRN Done",
+              "Closed",
+            ],
         };
       });
     }
@@ -739,6 +754,10 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
           totalValue: filters.totalValue,
           status: filters.status,
           date: filters.date,
+          fromDate: filters.fromDate,
+          toDate: filters.toDate,
+          startDate: filters.fromDate,
+          endDate: filters.toDate,
           month: filters.month,
           year: filters.year,
         },
@@ -915,10 +934,25 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
     const today = new Date().toISOString().split("T")[0];
     setQuickSupplierPayments((prev) => {
       const next = [...prev];
+      const val = typeof value === "string" ? value.toUpperCase() : value;
+      const currentUtr = field === "utrNumber" ? (val || "").trim() : (next[index].utrNumber || "").trim();
+
+      let nextPaid = next[index].isPaid;
+      if (field === "utrNumber") {
+        nextPaid = Boolean(val && val.trim());
+      } else if (field === "isPaid") {
+        if (!currentUtr) {
+          nextPaid = false;
+        } else {
+          nextPaid = Boolean(value);
+        }
+      }
+
       next[index] = {
         ...next[index],
-        [field]: value,
-        ...(field === "utrNumber" && value && value.trim() ? { isPaid: true, paymentDate: next[index].paymentDate || today } : {}),
+        [field]: val,
+        isPaid: nextPaid,
+        ...(nextPaid && !next[index].paymentDate ? { paymentDate: today } : {}),
       };
       return next;
     });
@@ -1142,9 +1176,17 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
           }
         }
       }
-      if (filters.date && row.createdAt) {
-        const rowDateStr = new Date(row.createdAt).toISOString().split("T")[0];
+      if (filters.date && (row.createdAt || row.stage1?.prDate)) {
+        const rowDateStr = (row.stage1?.prDate || row.createdAt).slice(0, 10);
         if (rowDateStr !== filters.date) return false;
+      }
+      if (filters.fromDate && (row.createdAt || row.stage1?.prDate)) {
+        const rowDateStr = (row.stage1?.prDate || row.createdAt).slice(0, 10);
+        if (rowDateStr < filters.fromDate) return false;
+      }
+      if (filters.toDate && (row.createdAt || row.stage1?.prDate)) {
+        const rowDateStr = (row.stage1?.prDate || row.createdAt).slice(0, 10);
+        if (rowDateStr > filters.toDate) return false;
       }
       if (filters.month && row.createdAt) {
         const rowMonth = new Date(row.createdAt).getMonth() + 1;
@@ -1158,136 +1200,23 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
     });
   }, [data, filters]);
 
+  // Requirement 14: Month-wise & Overall Total Business Volume for Completed PRs
+  const completedBusinessVolume = React.useMemo(() => {
+    const completedRows = (displayRows || []).filter(
+      (row) => ["GRN Done", "GRN Completed", "Closed"].includes(row.status)
+    );
+    return completedRows.reduce((acc, row) => {
+      const val = Number(row.displayTotalValue || row.stage2?.selectedSupplierL1Amount || row.stage1?.estimatedTotalCost || 0);
+      return acc + (isNaN(val) ? 0 : val);
+    }, 0);
+  }, [displayRows]);
+
+  const completedPrsCount = React.useMemo(() => {
+    return (displayRows || []).filter((r) => ["GRN Done", "GRN Completed", "Closed"].includes(r.status)).length;
+  }, [displayRows]);
+
   return (
     <Box sx={{ width: "100%" }}>
-      {/* Top Operational Metrics Header Cards - Compact Stage KPI Grid */}
-      <Box
-        sx={{
-          display: "grid",
-          gridTemplateColumns: {
-            xs: "repeat(2, 1fr)",
-            sm: "repeat(4, 1fr)",
-            md: "repeat(4, 1fr)",
-            lg: "repeat(8, 1fr)",
-          },
-          gap: 1,
-          mb: 1.8,
-        }}
-      >
-        {stageMetricsConfig.map((item) => {
-          if (!isTabVisible(item.fullLabel, item.value)) return null;
-          const count =
-            item.value === "0"
-              ? allRecords.length > 0
-                ? allRecords.length
-                : total || data.length
-              : getTabCount(item.value);
-          const isSelected = stageTab === item.value;
-          const IconComponent = item.icon;
-
-          return (
-            <Tooltip
-              key={item.value}
-              title={`${item.fullLabel}: ${count} PR(s) — Click to view`}
-              placement="top"
-              arrow
-            >
-              <Paper
-                elevation={0}
-                onClick={() => {
-                  setStageTab(item.value);
-                  setPage(0);
-                }}
-                sx={{
-                  py: 0.8,
-                  px: 1.1,
-                  borderRadius: "8px",
-                  border: "1px solid",
-                  borderColor: isSelected ? item.color : "#e2e8f0",
-                  background: isSelected
-                    ? item.bgGradient
-                    : "linear-gradient(135deg, #ffffff 0%, #fcfcfd 100%)",
-                  boxShadow: isSelected
-                    ? `0 2px 8px ${item.color}25`
-                    : "0 1px 2px rgba(0,0,0,0.02)",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 1,
-                  cursor: "pointer",
-                  transition: "all 0.18s ease-in-out",
-                  position: "relative",
-                  overflow: "hidden",
-                  minHeight: 48,
-                  "&:hover": {
-                    borderColor: item.color,
-                    transform: "translateY(-1px)",
-                    boxShadow: "0 3px 10px rgba(0,0,0,0.06)",
-                    "& .metric-avatar": {
-                      transform: "scale(1.06)",
-                    },
-                  },
-                  "&::after": isSelected
-                    ? {
-                        content: '""',
-                        position: "absolute",
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        height: "2.5px",
-                        backgroundColor: item.color,
-                        borderRadius: "0 0 8px 8px",
-                      }
-                    : {},
-                }}
-              >
-                <Avatar
-                  className="metric-avatar"
-                  sx={{
-                    bgcolor: item.bgLight,
-                    color: item.color,
-                    width: 30,
-                    height: 30,
-                    borderRadius: "6px",
-                    transition: "transform 0.18s ease",
-                    flexShrink: 0,
-                  }}
-                >
-                  <IconComponent sx={{ fontSize: 17 }} />
-                </Avatar>
-                <Box sx={{ minWidth: 0, flex: 1, overflow: "hidden" }}>
-                  <Typography
-                    sx={{
-                      color: isSelected ? item.color : "#64748b",
-                      fontWeight: 700,
-                      fontSize: "9.5px",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.3px",
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      lineHeight: 1.15,
-                    }}
-                  >
-                    {item.shortLabel}
-                  </Typography>
-                  <Typography
-                    sx={{
-                      fontWeight: 800,
-                      color: isSelected ? item.color : "#0f172a",
-                      fontSize: "17px",
-                      lineHeight: 1.1,
-                      mt: 0.2,
-                    }}
-                  >
-                    {count}
-                  </Typography>
-                </Box>
-              </Paper>
-            </Tooltip>
-          );
-        })}
-      </Box>
-
       {/* Main Surface Card */}
       <Paper elevation={0} sx={{ p: 2, mb: 2, borderRadius: "8px", border: "1px solid #e2e8f0" }}>
         <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems="center" spacing={2} sx={{ mb: 2 }}>
@@ -1300,25 +1229,66 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
             </Typography>
           </Box>
 
-          <Stack direction="row" spacing={1.5}>
+          <Stack direction="row" spacing={1.2} flexWrap="wrap">
             <Button
-              variant="outlined"
+              variant="contained"
               size="medium"
-              startIcon={<FileDownload sx={{ fontSize: 18 }} />}
-              onClick={handleDownloadTemplate}
+              startIcon={<ShowChart sx={{ fontSize: 18 }} />}
+              onClick={() => setPulseOpen(true)}
               sx={{
                 borderRadius: "6px",
                 textTransform: "none",
-                fontWeight: 600,
+                fontWeight: 700,
                 fontSize: "12.5px",
                 height: "36px",
-                px: 2,
-                borderColor: "#cbd5e1",
-                color: "#475569",
-                "&:hover": { borderColor: "#94a3b8", bgcolor: "#f8fafc" },
+                px: 1.8,
+                bgcolor: "#7c3aed",
+                color: "#ffffff",
+                boxShadow: "0 2px 4px rgba(124, 58, 237, 0.25)",
+                "&:hover": { bgcolor: "#6d28d9" },
               }}
             >
-              Excel Template
+              Pulse
+            </Button>
+            <Button
+              variant="outlined"
+              size="medium"
+              startIcon={<Assessment sx={{ fontSize: 18 }} />}
+              onClick={() => setReportOpen(true)}
+              sx={{
+                borderRadius: "6px",
+                textTransform: "none",
+                fontWeight: 700,
+                fontSize: "12.5px",
+                height: "36px",
+                px: 1.8,
+                borderColor: "#10b981",
+                color: "#059669",
+                bgcolor: "#ecfdf5",
+                "&:hover": { borderColor: "#059669", bgcolor: "#d1fae5" },
+              }}
+            >
+              Excel Report
+            </Button>
+            <Button
+              variant="outlined"
+              size="medium"
+              startIcon={<Business sx={{ fontSize: 18 }} />}
+              onClick={() => setCompanyDirectoryOpen(true)}
+              sx={{
+                borderRadius: "6px",
+                textTransform: "none",
+                fontWeight: 700,
+                fontSize: "12.5px",
+                height: "36px",
+                px: 1.8,
+                borderColor: "#3b82f6",
+                color: "#1d4ed8",
+                bgcolor: "#eff6ff",
+                "&:hover": { borderColor: "#1d4ed8", bgcolor: "#dbeafe" },
+              }}
+            >
+              Company Directory
             </Button>
             <Button
               variant="contained"
@@ -1328,7 +1298,7 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
               sx={{
                 borderRadius: "6px",
                 textTransform: "none",
-                fontWeight: 600,
+                fontWeight: 700,
                 fontSize: "12.5px",
                 height: "36px",
                 px: 2.2,
@@ -1434,7 +1404,7 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
         {/* Filter and Date/Month/Year Search Toolbar */}
         <Grid container spacing={1.5} alignItems="center">
           {/* General Search */}
-          <Grid item xs={12} md={4}>
+          <Grid item xs={12} md={3.2}>
             <TextField
               placeholder="Search PR#, PO#, Company, Supplier, or Date (e.g. Sep 2026, 17/09/2026)..."
               value={search}
@@ -1468,7 +1438,7 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
           </Grid>
 
           {/* Month Selector */}
-          <Grid item xs={6} sm={3} md={2}>
+          <Grid item xs={6} sm={3} md={1.5}>
             <TextField
               select
               label="Created Month"
@@ -1504,7 +1474,7 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
           </Grid>
 
           {/* Year Selector */}
-          <Grid item xs={6} sm={3} md={1.8}>
+          <Grid item xs={6} sm={3} md={1.3}>
             <TextField
               select
               label="Created Year"
@@ -1532,20 +1502,20 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
             </TextField>
           </Grid>
 
-          {/* Exact Date Picker */}
-          <Grid item xs={6} sm={3} md={2.2}>
+          {/* From Date Picker */}
+          <Grid item xs={6} sm={3} md={1.8}>
             <TextField
               type="date"
-              label="Exact Date"
+              label="From Date"
               size="small"
               fullWidth
-              value={filters.date}
-              onChange={(e) => handleFilterChange("date", e.target.value)}
+              value={filters.fromDate}
+              onChange={(e) => handleFilterChange("fromDate", e.target.value)}
               InputLabelProps={{ shrink: true }}
               InputProps={{
-                endAdornment: filters.date ? (
+                endAdornment: filters.fromDate ? (
                   <InputAdornment position="end">
-                    <IconButton size="small" onClick={() => handleFilterChange("date", "")}>
+                    <IconButton size="small" onClick={() => handleFilterChange("fromDate", "")}>
                       <Clear sx={{ fontSize: 14 }} />
                     </IconButton>
                   </InputAdornment>
@@ -1554,10 +1524,41 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
               sx={{
                 "& .MuiOutlinedInput-root": {
                   borderRadius: "6px",
-                  bgcolor: filters.date ? "#eff6ff" : "#fafaff",
+                  bgcolor: filters.fromDate ? "#eff6ff" : "#fafaff",
                   height: 38,
                   fontSize: "12px",
-                  "& fieldset": { borderColor: filters.date ? "#3b82f6" : "#cbd5e1" },
+                  "& fieldset": { borderColor: filters.fromDate ? "#3b82f6" : "#cbd5e1" },
+                },
+              }}
+            />
+          </Grid>
+
+          {/* To Date Picker */}
+          <Grid item xs={6} sm={3} md={1.8}>
+            <TextField
+              type="date"
+              label="To Date"
+              size="small"
+              fullWidth
+              value={filters.toDate}
+              onChange={(e) => handleFilterChange("toDate", e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              InputProps={{
+                endAdornment: filters.toDate ? (
+                  <InputAdornment position="end">
+                    <IconButton size="small" onClick={() => handleFilterChange("toDate", "")}>
+                      <Clear sx={{ fontSize: 14 }} />
+                    </IconButton>
+                  </InputAdornment>
+                ) : null,
+              }}
+              sx={{
+                "& .MuiOutlinedInput-root": {
+                  borderRadius: "6px",
+                  bgcolor: filters.toDate ? "#eff6ff" : "#fafaff",
+                  height: 38,
+                  fontSize: "12px",
+                  "& fieldset": { borderColor: filters.toDate ? "#3b82f6" : "#cbd5e1" },
                 },
               }}
             />
@@ -1682,6 +1683,36 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
                 sx={{ fontSize: "11px", height: 22, bgcolor: "#f1f5f9", color: "#334155", fontWeight: 600 }}
               />
             )}
+            {filters.fromDate && filters.toDate ? (
+              <Chip
+                label={`Range: ${filters.fromDate} to ${filters.toDate}`}
+                size="small"
+                onDelete={() => {
+                  handleFilterChange("fromDate", "");
+                  handleFilterChange("toDate", "");
+                }}
+                sx={{ fontSize: "11px", height: 22, bgcolor: "#fee2e2", color: "#b91c1c", fontWeight: 600 }}
+              />
+            ) : (
+              <>
+                {filters.fromDate && (
+                  <Chip
+                    label={`From: ${filters.fromDate}`}
+                    size="small"
+                    onDelete={() => handleFilterChange("fromDate", "")}
+                    sx={{ fontSize: "11px", height: 22, bgcolor: "#fee2e2", color: "#b91c1c", fontWeight: 600 }}
+                  />
+                )}
+                {filters.toDate && (
+                  <Chip
+                    label={`To: ${filters.toDate}`}
+                    size="small"
+                    onDelete={() => handleFilterChange("toDate", "")}
+                    sx={{ fontSize: "11px", height: 22, bgcolor: "#fee2e2", color: "#b91c1c", fontWeight: 600 }}
+                  />
+                )}
+              </>
+            )}
             {filters.date && (
               <Chip
                 label={`Date: ${filters.date}`}
@@ -1709,6 +1740,59 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
           </Box>
         )}
       </Paper>
+
+      {/* Requirement 14: Completed Tab Total Business Volume Banner */}
+      {stageTab === "7" && (
+        <Paper
+          elevation={0}
+          sx={{
+            p: 2,
+            mb: 2,
+            borderRadius: "8px",
+            background: "linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)",
+            border: "1.5px solid #10b981",
+            borderLeft: "6px solid #059669",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: 2,
+            boxShadow: "0 2px 8px rgba(16, 185, 129, 0.15)",
+          }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.8 }}>
+            <Avatar sx={{ bgcolor: "#059669", color: "#ffffff", width: 44, height: 44, boxShadow: "0 2px 6px rgba(5, 150, 105, 0.3)" }}>
+              <CheckCircle sx={{ fontSize: 26 }} />
+            </Avatar>
+            <Box>
+              <Typography sx={{ fontSize: "11.5px", fontWeight: 800, color: "#065f46", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                Total Business Volume (Completed Orders)
+              </Typography>
+              <Typography sx={{ fontSize: "25px", fontWeight: 900, color: "#064e3b", lineHeight: 1.2 }}>
+                {completedBusinessVolume.toLocaleString("en-IN", { style: "currency", currency: "INR" })}
+              </Typography>
+              <Typography sx={{ fontSize: "12px", color: "#047857", fontWeight: 600, mt: 0.3 }}>
+                {filters.month
+                  ? `Filtered for ${["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][parseInt(filters.month, 10) - 1]} ${filters.year || ""}`
+                  : "Overall Total Business Volume across All Months"}
+                {" · "}
+                <strong>{completedPrsCount}</strong> Completed PR{completedPrsCount !== 1 ? "s" : ""}
+              </Typography>
+            </Box>
+          </Box>
+
+          <Box sx={{ textAlign: { xs: "left", sm: "right" }, bgcolor: "rgba(255,255,255,0.7)", p: 1.2, borderRadius: "6px", border: "1px solid #a7f3d0" }}>
+            <Typography sx={{ fontSize: "11px", color: "#047857", fontWeight: 700, textTransform: "uppercase" }}>
+              Average Order Value
+            </Typography>
+            <Typography sx={{ fontSize: "16px", fontWeight: 800, color: "#064e3b" }}>
+              {completedPrsCount > 0
+                ? (completedBusinessVolume / completedPrsCount).toLocaleString("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 })
+                : "₹0"}
+            </Typography>
+          </Box>
+        </Paper>
+      )}
 
       {/* Table Container */}
       <Paper elevation={0} sx={{ borderRadius: "8px", border: "1px solid #e2e8f0", overflow: "hidden" }}>
@@ -1983,26 +2067,30 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
                                 row.companyName ||
                                 row.stage1?.companyName ||
                                 (cKey === "SURAVIO" || cKey === "SRCC"
-                                  ? "SURAVIO"
+                                  ? "Suravio Cargo Carriers"
                                   : cKey === "SURAJ"
-                                  ? "Suraj Forwarders"
-                                  : cKey === "NOVUSHA"
-                                  ? "Novusha Consulting"
-                                  : cKey === "PARAMOUNT"
-                                  ? "Paramount Propack"
-                                  : cKey === "RABS"
-                                  ? "RABS Industries"
-                                  : cKey);
+                                    ? "Suraj Forwarders"
+                                    : cKey === "NOVUSHA"
+                                      ? "Novusha Consulting"
+                                      : cKey === "ALLUVIUM"
+                                        ? "Alluvium IoT Solutions"
+                                        : cKey === "PARAMOUNT"
+                                          ? "Paramount Propack"
+                                          : cKey === "RABS"
+                                            ? "RABS Industries"
+                                            : cKey);
                               const badgeTheme =
                                 cKey === "NOVUSHA"
                                   ? { bg: "#f3e8ff", color: "#6b21a8", border: "#d8b4fe" }
-                                  : cKey === "SURAJ"
-                                  ? { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa" }
-                                  : cKey === "PARAMOUNT"
-                                  ? { bg: "#fef2f2", color: "#991b1b", border: "#fecaca" }
-                                  : cKey === "RABS"
-                                  ? { bg: "#f0fdf4", color: "#166534", border: "#bbf7d0" }
-                                  : { bg: "#e0f2fe", color: "#0369a1", border: "#7dd3fc" };
+                                  : cKey === "ALLUVIUM"
+                                    ? { bg: "#ecfdf5", color: "#047857", border: "#a7f3d0" }
+                                    : cKey === "SURAJ"
+                                      ? { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa" }
+                                      : cKey === "PARAMOUNT"
+                                        ? { bg: "#fef2f2", color: "#991b1b", border: "#fecaca" }
+                                        : cKey === "RABS"
+                                          ? { bg: "#f0fdf4", color: "#166534", border: "#bbf7d0" }
+                                          : { bg: "#e0f2fe", color: "#0369a1", border: "#7dd3fc" };
                               return (
                                 <Box
                                   sx={{
@@ -2343,8 +2431,8 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
                               const hasInvoices = invoiceDocs.length > 0;
                               const invTooltip = hasInvoices
                                 ? (invoiceDocs.length === 1
-                                    ? `View / Download Invoice (${invoiceDocs[0].invoiceNumber ? "Inv #" + invoiceDocs[0].invoiceNumber : invoiceDocs[0].fileName || "Document"})`
-                                    : `View Invoice Documents (${invoiceDocs.length} Available)`)
+                                  ? `View / Download Invoice (${invoiceDocs[0].invoiceNumber ? "Inv #" + invoiceDocs[0].invoiceNumber : invoiceDocs[0].fileName || "Document"})`
+                                  : `View Invoice Documents (${invoiceDocs.length} Available)`)
                                 : "No Invoice Document uploaded yet (Stage 6 Site GRN)";
 
                               return (
@@ -2466,11 +2554,11 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
                   const sups = quickApprovalRow.stage2?.selectedSuppliers?.length > 0
                     ? quickApprovalRow.stage2.selectedSuppliers
                     : [{
-                        selectedSupplier: quickApprovalRow.stage2?.selectedSupplierL1 || "-",
-                        priceQuoted: quickApprovalRow.stage2?.l1PriceQuoted || 0,
-                        totalOrderValue: quickApprovalRow.stage2?.totalOrderValue || 0,
-                        poNumber: quickApprovalRow.poNumber || "-",
-                      }];
+                      selectedSupplier: quickApprovalRow.stage2?.selectedSupplierL1 || "-",
+                      priceQuoted: quickApprovalRow.stage2?.l1PriceQuoted || 0,
+                      totalOrderValue: quickApprovalRow.stage2?.totalOrderValue || 0,
+                      poNumber: quickApprovalRow.poNumber || "-",
+                    }];
                   return (
                     <Box sx={{ mt: 1.5, borderTop: "1px solid #f1f5f9", pt: 1.5 }}>
                       <Typography sx={{ fontSize: "12px", fontWeight: 700, color: "#334155", mb: 1 }}>
@@ -2738,7 +2826,9 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
                         color={sp.isPaid ? "success" : "primary"}
                         size="small"
                         fullWidth
+                        disabled={!Boolean(sp.utrNumber?.trim())}
                         onClick={() => handleQuickPaymentFieldChange(idx, "isPaid", !sp.isPaid)}
+                        title={!Boolean(sp.utrNumber?.trim()) ? "Enter UTR Number first to mark as paid" : ""}
                         sx={{ height: 36, textTransform: "none", fontWeight: 700, fontSize: "11.5px" }}
                       >
                         {sp.isPaid ? "✓ Paid" : "Mark Paid"}
@@ -2890,6 +2980,27 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Requirement 16: Procurement Daily Pulse Modal */}
+      <ProcurementPulseModal
+        open={pulseOpen}
+        onClose={() => setPulseOpen(false)}
+        onView={onView}
+      />
+
+      {/* Requirement 15: Procurement Excel Report Modal (Replaces Excel Template) */}
+      <ProcurementExcelReportModal
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+        defaultMonth={filters.month}
+        defaultYear={filters.year}
+      />
+
+      {/* Requirement 1 & 6: Company Directory & Departments Master Modal */}
+      <CompanyDirectoryModal
+        open={companyDirectoryOpen}
+        onClose={() => setCompanyDirectoryOpen(false)}
+      />
     </Box>
   );
 }

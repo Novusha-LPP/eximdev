@@ -92,7 +92,7 @@ function TyreProcurementSop() {
   }, [navigate, location.pathname, handleCancel]);
 
   return (
-    <Box sx={{ p: 1 }}>
+    <Box sx={{ width: "100%" }}>
       {view === "list" ? (
         <TyreProcurementList onEdit={handleEdit} onView={handleView} onCreate={handleCreate} />
       ) : (

@@ -278,7 +278,7 @@ router.get(
 
       const allJobs = await JobModel.find(baseQuery)
         .select(
-          "priorityJob thar_invoices hasti_invoices icd_cfs_invoice_img eta bill_document_sent_to_accounts out_of_charge delivery_date detailed_status esanchit_completed_date_time status be_no job_number job_no year importer shipping_line_airline custom_house obl_telex_bl gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy vessel_berthing branch_code trade_type mode charges agency_invoice_no reimbursement_invoice_no upload_agency_bill_img upload_reimbursement_bill_img bill_no bill_date agency_bill_no reimbursement_bill_no billing_details bill_amount"
+          "priorityJob thar_invoices hasti_invoices icd_cfs_invoice_img eta bill_document_sent_to_accounts out_of_charge delivery_date detailed_status esanchit_completed_date_time status be_no be_date job_number job_no year importer shipping_line_airline custom_house obl_telex_bl gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy vessel_berthing branch_code trade_type mode charges agency_invoice_no reimbursement_invoice_no upload_agency_bill_img upload_reimbursement_bill_img bill_no bill_date agency_bill_no reimbursement_bill_no billing_details bill_amount customs_duty_challan customs_duty_receipt duty_receipt_img duty_challan_img customs_duty_acknowledgement"
         )
         .lean();
 
@@ -455,7 +455,7 @@ router.get(
 
       const allJobs = await JobModel.find(baseQuery)
         .select(
-          "priorityJob thar_invoices hasti_invoices icd_cfs_invoice_img eta bill_document_sent_to_accounts out_of_charge delivery_date detailed_status esanchit_completed_date_time status be_no job_number job_no year importer shipping_line_airline custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy vessel_berthing do_shipping_line_invoice bill_date branch_code trade_type mode charges agency_invoice_no reimbursement_invoice_no upload_agency_bill_img upload_reimbursement_bill_img bill_no agency_bill_no reimbursement_bill_no billing_details bill_amount"
+          "priorityJob thar_invoices hasti_invoices icd_cfs_invoice_img eta bill_document_sent_to_accounts out_of_charge delivery_date detailed_status esanchit_completed_date_time status be_no be_date job_number job_no year importer shipping_line_airline custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy vessel_berthing do_shipping_line_invoice bill_date branch_code trade_type mode charges agency_invoice_no reimbursement_invoice_no agency_invoice_date reimbursement_invoice_date debit_notes debit_note_no debit_note_date upload_agency_bill_img upload_reimbursement_bill_img bill_no agency_bill_no reimbursement_bill_no billing_details bill_amount customs_duty_challan customs_duty_receipt duty_receipt_img duty_challan_img customs_duty_acknowledgement"
         )
         .lean();
 
@@ -1331,10 +1331,9 @@ router.get(
             }
           },
         },
-        // Show in Completed tab if all requested payments are PAID and there are no unresolved Accounts queries
+        // Show in Completed tab if requested payments contain PAID items and there are no unresolved Accounts queries (IP-1, IP-2)
         { 
           $match: { 
-            has_pending_items: false, 
             has_paid_items: true, 
             ...(workMode === 'Payment' ? { has_unresolved_accounts_queries: false } : {})
           } 
@@ -1594,6 +1593,7 @@ router.get("/api/get-payment-request-details/:requestNo(*)", async (req, res) =>
 
     let paymentRequestNo = null;
     let purchaseBookNo = null;
+    let purchaseBookInvoiceNo = request.supplierInvNo || request.invoiceNumber || "";
 
     if (isPurchaseBook) {
       purchaseBookNo = request.entryNo || request.requestNo;
@@ -1610,15 +1610,16 @@ router.get("/api/get-payment-request-details/:requestNo(*)", async (req, res) =>
           chargeRef: request.chargeRef,
           status: { $ne: 'Rejected' },
           isRejected: { $ne: true }
-        }).select('entryNo').lean();
+        }).select('entryNo supplierInvNo invoiceNumber').lean();
         if (pb) {
           purchaseBookNo = pb.entryNo;
+          purchaseBookInvoiceNo = pb.supplierInvNo || pb.invoiceNumber || purchaseBookInvoiceNo;
         }
       }
     }
 
     // Double check from job's charges if still missing
-    if (jobRef && (!paymentRequestNo || !purchaseBookNo)) {
+    if (jobRef && (!paymentRequestNo || !purchaseBookNo || !purchaseBookInvoiceNo)) {
       try {
         const job = await JobModel.findById(jobRef).select('charges').lean();
         if (job && job.charges) {
@@ -1636,6 +1637,9 @@ router.get("/api/get-payment-request-details/:requestNo(*)", async (req, res) =>
             if (linkedCharge.purchase_book_no && linkedCharge.purchase_book_status !== 'Rejected' && !purchaseBookNo) {
               purchaseBookNo = linkedCharge.purchase_book_no;
             }
+            if (!purchaseBookInvoiceNo) {
+              purchaseBookInvoiceNo = linkedCharge.supplier_inv_no || linkedCharge.invoice_number || "";
+            }
             if (linkedCharge.payment_request_no && linkedCharge.payment_request_status !== 'Rejected' && !paymentRequestNo) {
               paymentRequestNo = linkedCharge.payment_request_no;
             }
@@ -1652,7 +1656,8 @@ router.get("/api/get-payment-request-details/:requestNo(*)", async (req, res) =>
       attachments, 
       isPurchaseBook,
       paymentRequestNo,
-      purchaseBookNo
+      purchaseBookNo,
+      purchaseBookInvoiceNo
     });
   } catch (err) {
     console.error("Error fetching payment request details:", err);
@@ -1864,6 +1869,95 @@ router.patch("/api/update-payment-utr", async (req, res) => {
   }
 });
 
+router.patch(["/api/edit-payment-request-payment", "/edit-payment-request-payment"], async (req, res) => {
+  try {
+    const { requestNo: rawRequestNo, utrNumber, bankFrom, status = "Paid", paymentReceiptUrl, reason } = req.body;
+    const requestNo = rawRequestNo?.trim();
+    const username = req.headers.username || req.user?.username || "Admin";
+
+    if (!requestNo) {
+      return res.status(400).json({ message: "Request No is required" });
+    }
+
+    const existing = await PaymentRequestModel.findOne({ requestNo });
+    if (!existing) {
+      return res.status(404).json({ message: "Payment request not found" });
+    }
+
+    const oldValues = {
+      utrNumber: existing.utrNumber || "",
+      bankFrom: existing.bankFrom || "",
+      status: existing.status || "",
+      paymentReceiptUrl: existing.paymentReceiptUrl || "",
+    };
+
+    const newStatus = status === "Approved" ? "Approved" : "Paid";
+    const newUtr = newStatus === "Approved" ? "" : (utrNumber !== undefined ? utrNumber : existing.utrNumber);
+    const newBank = newStatus === "Approved" ? "" : (bankFrom !== undefined ? bankFrom : existing.bankFrom);
+    const newReceipt = newStatus === "Approved" ? "" : (paymentReceiptUrl !== undefined ? paymentReceiptUrl : existing.paymentReceiptUrl);
+
+    const auditEntry = {
+      action: newStatus === "Approved" ? "PAYMENT_REVERTED_TO_APPROVED" : "PAYMENT_CORRECTED",
+      editedBy: username,
+      editedAt: new Date(),
+      reason: reason || "Payment details corrected",
+      oldValues,
+      newValues: {
+        utrNumber: newUtr,
+        bankFrom: newBank,
+        status: newStatus,
+        paymentReceiptUrl: newReceipt,
+      },
+    };
+
+    const updatedRequest = await PaymentRequestModel.findOneAndUpdate(
+      { requestNo },
+      {
+        $set: {
+          utrNumber: newUtr,
+          bankFrom: newBank,
+          status: newStatus,
+          paymentReceiptUrl: newReceipt,
+          lastEditedBy: username,
+          lastEditedAt: new Date(),
+          lastEditReason: reason || "",
+        },
+        $push: {
+          auditTrail: auditEntry,
+        },
+      },
+      { new: true }
+    );
+
+    // 2. Sync to JobModel charges
+    await JobModel.updateMany(
+      { "charges.payment_request_no": requestNo },
+      {
+        $set: {
+          "charges.$[elem].payment_request_status": newStatus,
+          "charges.$[elem].utrNumber": newUtr,
+          "charges.$[elem].payment_request_bank_from": newBank,
+          "charges.$[elem].payment_request_receipt_url": newReceipt,
+          "charges.$[elem].lastEditedBy": username,
+          "charges.$[elem].lastEditedAt": new Date(),
+        },
+      },
+      {
+        arrayFilters: [{ "elem.payment_request_no": requestNo }],
+      }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: newStatus === "Approved" ? "Payment status reverted to Approved" : "Payment details corrected successfully",
+      data: updatedRequest,
+    });
+  } catch (err) {
+    console.error("Error editing payment request payment:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
 
 // ==================== PURCHASE BOOK APPROVAL, REJECTION & UTR UPDATES ====================
 
@@ -2070,6 +2164,95 @@ router.patch("/api/update-purchase-utr", async (req, res) => {
 
   } catch (err) {
     console.error("Error updating PB payment details:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+router.patch(["/api/edit-purchase-entry-payment", "/edit-purchase-entry-payment"], async (req, res) => {
+  try {
+    const { requestNo: rawRequestNo, utrNumber, bankFrom, status = "Paid", paymentReceiptUrl, reason } = req.body;
+    const requestNo = rawRequestNo?.trim();
+    const username = req.headers.username || req.user?.username || "Admin";
+
+    if (!requestNo) {
+      return res.status(400).json({ message: "Entry No is required" });
+    }
+
+    const existing = await PurchaseBookEntryModel.findOne({ entryNo: requestNo });
+    if (!existing) {
+      return res.status(404).json({ message: "Purchase Book entry not found" });
+    }
+
+    const oldValues = {
+      utrNumber: existing.utrNumber || "",
+      bankFrom: existing.bankFrom || "",
+      status: existing.status || "",
+      paymentReceiptUrl: existing.paymentReceiptUrl || "",
+    };
+
+    const newStatus = status === "Approved" ? "Approved" : "Paid";
+    const newUtr = newStatus === "Approved" ? "" : (utrNumber !== undefined ? utrNumber : existing.utrNumber);
+    const newBank = newStatus === "Approved" ? "" : (bankFrom !== undefined ? bankFrom : existing.bankFrom);
+    const newReceipt = newStatus === "Approved" ? "" : (paymentReceiptUrl !== undefined ? paymentReceiptUrl : existing.paymentReceiptUrl);
+
+    const auditEntry = {
+      action: newStatus === "Approved" ? "PURCHASE_PAYMENT_REVERTED_TO_APPROVED" : "PURCHASE_PAYMENT_CORRECTED",
+      editedBy: username,
+      editedAt: new Date(),
+      reason: reason || "Purchase Book payment corrected",
+      oldValues,
+      newValues: {
+        utrNumber: newUtr,
+        bankFrom: newBank,
+        status: newStatus,
+        paymentReceiptUrl: newReceipt,
+      },
+    };
+
+    const updatedEntry = await PurchaseBookEntryModel.findOneAndUpdate(
+      { entryNo: requestNo },
+      {
+        $set: {
+          utrNumber: newUtr,
+          bankFrom: newBank,
+          status: newStatus,
+          paymentReceiptUrl: newReceipt,
+          lastEditedBy: username,
+          lastEditedAt: new Date(),
+          lastEditReason: reason || "",
+        },
+        $push: {
+          auditTrail: auditEntry,
+        },
+      },
+      { new: true }
+    );
+
+    // 2. Sync to JobModel charges
+    await JobModel.updateMany(
+      { "charges.purchase_book_no": requestNo },
+      {
+        $set: {
+          "charges.$[elem].purchase_book_status": newStatus,
+          "charges.$[elem].utrNumber": newUtr,
+          "charges.$[elem].purchase_book_bank_from": newBank,
+          "charges.$[elem].purchase_book_receipt_url": newReceipt,
+          "charges.$[elem].lastEditedBy": username,
+          "charges.$[elem].lastEditedAt": new Date(),
+        },
+      },
+      {
+        arrayFilters: [{ "elem.purchase_book_no": requestNo }],
+      }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: newStatus === "Approved" ? "Purchase Book status reverted to Approved" : "Purchase Book payment corrected successfully",
+      data: updatedEntry,
+    });
+  } catch (err) {
+    console.error("Error editing purchase entry payment:", err);
     res.status(500).json({ message: "Internal server error" });
   }
 });

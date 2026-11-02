@@ -15,7 +15,9 @@ import {
 } from "@mui/material";
 import DirectionsCarIcon from "@mui/icons-material/DirectionsCar";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
+import BusinessIcon from "@mui/icons-material/Business";
 import axios from "axios";
+import { COMPANY_OPTIONS } from "../accounts/tyreProcurementSop/companyProfiles";
 
 const TYRE_PROC_TABS = [
   "1. Purchase Request",
@@ -53,7 +55,8 @@ const FLEET_INSURANCE_TABS = [
 function AssignProcurementTabs({ selectedUser }) {
   // Tyre Procurement state
   const [tyreTabPermissions, setTyreTabPermissions] = useState([]);
-    const [tyreProcurementAdmin, setTyreProcurementAdmin] = useState(false);
+  const [tyreProcurementAdmin, setTyreProcurementAdmin] = useState(false);
+  const [assignedCompanies, setAssignedCompanies] = useState([]);
   const [loadingTyre, setLoadingTyre] = useState(false);
   const [savingTyre, setSavingTyre] = useState(false);
   const [tyreMessage, setTyreMessage] = useState(null);
@@ -69,6 +72,7 @@ function AssignProcurementTabs({ selectedUser }) {
       if (!selectedUser) {
         setTyreTabPermissions([]);
         setTyreProcurementAdmin(false);
+        setAssignedCompanies([]);
         setFleetTabPermissions([]);
         return;
       }
@@ -87,6 +91,7 @@ function AssignProcurementTabs({ selectedUser }) {
         if (tyreRes.data?.success) {
           setTyreTabPermissions(tyreRes.data.allowed_tabs || []);
           setTyreProcurementAdmin(Boolean(tyreRes.data.tyre_procurement_admin));
+          setAssignedCompanies(tyreRes.data.assigned_companies || []);
         }
         if (fleetRes.data?.success) {
           setFleetTabPermissions(fleetRes.data.allowed_tabs || []);
@@ -108,6 +113,12 @@ function AssignProcurementTabs({ selectedUser }) {
     );
   };
 
+  const handleToggleCompany = (compKey) => {
+    setAssignedCompanies((prev) =>
+      prev.includes(compKey) ? prev.filter((c) => c !== compKey) : [...prev, compKey]
+    );
+  };
+
   const handleSaveTyre = async () => {
     if (!selectedUser) return;
     setSavingTyre(true);
@@ -119,6 +130,7 @@ function AssignProcurementTabs({ selectedUser }) {
           username: selectedUser,
           allowed_tabs: tyreTabPermissions,
           tyre_procurement_admin: tyreProcurementAdmin,
+          assigned_companies: assignedCompanies,
         }
       );
       if (res.data?.success) {
@@ -371,6 +383,74 @@ function AssignProcurementTabs({ selectedUser }) {
                 );
               })}
             </Grid>
+
+            {/* ─── Company Access Assignment ─── */}
+            <Box sx={{ mt: 3, pt: 2, borderTop: "1px dashed #cbd5e1" }}>
+              <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
+                <BusinessIcon sx={{ color: "#2563eb", fontSize: 22 }} />
+                <Typography variant="subtitle1" sx={{ fontWeight: 700, color: "#0f172a" }}>
+                  Assigned Purchasing Companies
+                </Typography>
+                <Chip
+                  label={assignedCompanies.length === 0 ? "All Companies (Unrestricted)" : `${assignedCompanies.length} Selected`}
+                  size="small"
+                  color={assignedCompanies.length === 0 ? "default" : "primary"}
+                  sx={{ fontWeight: 700, fontSize: "0.75rem", height: 22 }}
+                />
+              </Stack>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Assign one or more companies to user <strong>{selectedUser}</strong>. Non-admin users can only create PRs and view PR/PO records for their assigned companies. If only 1 company is assigned, it auto-selects during PR creation. Leave all unchecked to grant unrestricted access to all companies.
+              </Typography>
+              <Grid container spacing={1.5}>
+                {COMPANY_OPTIONS.map((comp) => {
+                  const isChecked = assignedCompanies.includes(comp.value);
+                  return (
+                    <Grid item xs={12} sm={6} md={4} key={comp.value}>
+                      <Card
+                        variant="outlined"
+                        onClick={() => handleToggleCompany(comp.value)}
+                        sx={{
+                          p: 1.5,
+                          cursor: "pointer",
+                          borderColor: isChecked ? "#2563eb" : "#e2e8f0",
+                          backgroundColor: isChecked ? "#f0f7ff" : "#ffffff",
+                          borderWidth: isChecked ? "2px" : "1px",
+                          borderRadius: "8px",
+                          transition: "all 0.15s ease",
+                          "&:hover": {
+                            borderColor: "#3b82f6",
+                            backgroundColor: isChecked ? "#e8f2ff" : "#f8fafc",
+                          },
+                        }}
+                      >
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={isChecked}
+                              onChange={() => handleToggleCompany(comp.value)}
+                              size="small"
+                              color="primary"
+                              sx={{ p: 0.5 }}
+                            />
+                          }
+                          label={
+                            <Box>
+                              <Typography variant="body2" sx={{ fontWeight: 700, color: "#1e293b", fontSize: "0.825rem" }}>
+                                {comp.label}
+                              </Typography>
+                              <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600 }}>
+                                Code: {comp.value}
+                              </Typography>
+                            </Box>
+                          }
+                          sx={{ width: "100%", m: 0 }}
+                        />
+                      </Card>
+                    </Grid>
+                  );
+                })}
+              </Grid>
+            </Box>
 
             <Box sx={{ mt: 2.5, display: "flex", justifyContent: "flex-end" }}>
               <Button

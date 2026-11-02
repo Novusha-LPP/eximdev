@@ -367,31 +367,22 @@ function Stage2PurchaseRequest({ data, onChange, globalData, onGlobalChange }) {
             <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
               <TableCell>Step</TableCell>
               <TableCell>Action / Task</TableCell>
-              <TableCell>Responsible Person</TableCell>
               <TableCell>Date / Time</TableCell>
               <TableCell>Status</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {[
-              ["PR raised by factory person", "Factory PR Person"],
-              ["Reviewed & approved by Production Head", "Production Head"],
-              ["PR forwarded to Purchase Officer", "Production Head / PR Person"],
-            ].map(([task, person], idx) => (
+              "PR raised by factory person",
+              "Reviewed & approved by Production Head",
+              "PR forwarded to Purchase Officer",
+            ].map((task, idx) => (
               <TableRow key={idx}>
                 <TableCell>{idx + 1}</TableCell>
                 <TableCell>
                   <TextField
                     value={actionLog[idx]?.actionTask || task}
                     onChange={(e) => updateActionLog(idx, "actionTask", e.target.value)}
-                    size="small"
-                    fullWidth
-                  />
-                </TableCell>
-                <TableCell>
-                  <TextField
-                    value={actionLog[idx]?.responsiblePerson || person}
-                    onChange={(e) => updateActionLog(idx, "responsiblePerson", e.target.value)}
                     size="small"
                     fullWidth
                   />

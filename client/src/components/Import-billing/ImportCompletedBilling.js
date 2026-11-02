@@ -13,6 +13,7 @@ import {
   Typography,
   MenuItem,
   Autocomplete,
+  Chip,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
@@ -510,15 +511,225 @@ function ImportCompletedBilling({ workMode = 'Payment' }) {
         },
       },
       {
-        accessorKey: "reason_for_delay",
-        header: "Reason for Delay",
+        accessorKey: "billing_details",
+        header: "Billing Details",
         enableSorting: false,
-        size: 200,
-        Cell: ({ cell }) => (
-          <Typography variant="body2" sx={{ fontSize: "0.85rem", color: cell.getValue() ? "#212529" : "#9e9e9e", fontStyle: cell.getValue() ? "normal" : "italic" }}>
-            {cell.getValue() || "N/A"}
-          </Typography>
-        ),
+        size: 260,
+        Cell: ({ cell }) => {
+          const rowData = cell.row.original;
+          const {
+            branch_code,
+            trade_type,
+            mode,
+            job_no,
+            year,
+            agency_invoice_no,
+            reimbursement_invoice_no,
+            agency_invoice_date,
+            reimbursement_invoice_date,
+            bill_date,
+            bill_no,
+            billing_details,
+            debit_notes,
+            debit_note_no,
+            debit_note_date,
+          } = rowData;
+
+          // Manual fallback helper
+          const fallbackAgency = rowData.agency_bill_no || billing_details?.agency_bill_no || "";
+          const fallbackReimb = rowData.reimbursement_bill_no || billing_details?.reimbursement_bill_no || "";
+          let manualAgency = fallbackAgency;
+          let manualReimb = fallbackReimb;
+          if (bill_no) {
+            const parts = bill_no.split(",");
+            manualAgency = parts[0]?.trim() || fallbackAgency;
+            manualReimb = parts[1]?.trim() || fallbackReimb;
+          }
+
+          const agencyInv = (agency_invoice_no || manualAgency || "").trim();
+          const reimbInv = (reimbursement_invoice_no || manualReimb || "").trim();
+
+          const formatDate = (d) => {
+            if (!d) return "";
+            try {
+              const dt = new Date(d);
+              return isNaN(dt.getTime()) ? String(d) : dt.toLocaleDateString("en-GB");
+            } catch (e) {
+              return String(d);
+            }
+          };
+
+          const agencyDate = formatDate(agency_invoice_date || billing_details?.agency_invoice_date || bill_date);
+          const reimbDate = formatDate(reimbursement_invoice_date || billing_details?.reimbursement_invoice_date || bill_date);
+
+          // Collect all debit notes
+          const debitNoteList = [];
+          if (Array.isArray(debit_notes)) {
+            debit_notes.forEach((dn) => {
+              if (typeof dn === "object" && dn) {
+                debitNoteList.push({
+                  no: dn.debit_note_no || dn.note_no || dn.number || dn.no || "DN",
+                  date: formatDate(dn.debit_note_date || dn.date || dn.createdAt),
+                  url: dn.url || "",
+                });
+              } else if (typeof dn === "string" && dn) {
+                debitNoteList.push({ no: dn, date: "" });
+              }
+            });
+          }
+          if (debit_note_no && !debitNoteList.some((d) => d.no === debit_note_no)) {
+            debitNoteList.push({
+              no: debit_note_no,
+              date: formatDate(debit_note_date),
+            });
+          }
+
+          const hasAnyDetails = agencyInv || reimbInv || debitNoteList.length > 0;
+
+          if (!hasAnyDetails) {
+            return (
+              <Typography variant="caption" sx={{ color: "#9e9e9e", fontStyle: "italic" }}>
+                No billing details
+              </Typography>
+            );
+          }
+
+          return (
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 0.75, py: 0.5 }}>
+              {/* Agency Invoice */}
+              {agencyInv && (
+                <Box sx={{ fontSize: "0.75rem", lineHeight: 1.3 }}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                    <Chip
+                      label="Agency"
+                      size="small"
+                      sx={{
+                        fontSize: "0.6rem",
+                        height: "16px",
+                        backgroundColor: "#e3f2fd",
+                        color: "#1565c0",
+                        fontWeight: 700,
+                        "& .MuiChip-label": { px: 0.5 },
+                      }}
+                    />
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        fontWeight: "bold",
+                        color: "#1565c0",
+                        cursor: "pointer",
+                        "&:hover": { textDecoration: "underline" },
+                      }}
+                      onClick={() => {
+                        window.open(
+                          `/agency-bill/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`,
+                          "_blank"
+                        );
+                      }}
+                      title="Open Agency Bill"
+                    >
+                      {agencyInv}
+                    </Typography>
+                  </Box>
+                  {agencyDate && (
+                    <Typography variant="caption" sx={{ color: "#666", fontSize: "0.68rem", ml: 0.5 }}>
+                      Date: {agencyDate}
+                    </Typography>
+                  )}
+                </Box>
+              )}
+
+              {/* Reimbursement Invoice */}
+              {reimbInv && (
+                <Box sx={{ fontSize: "0.75rem", lineHeight: 1.3 }}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                    <Chip
+                      label="Reimb"
+                      size="small"
+                      sx={{
+                        fontSize: "0.6rem",
+                        height: "16px",
+                        backgroundColor: "#fbe9e7",
+                        color: "#d84315",
+                        fontWeight: 700,
+                        "& .MuiChip-label": { px: 0.5 },
+                      }}
+                    />
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        fontWeight: "bold",
+                        color: "#d84315",
+                        cursor: "pointer",
+                        "&:hover": { textDecoration: "underline" },
+                      }}
+                      onClick={() => {
+                        window.open(
+                          `/reimbursement-bill/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`,
+                          "_blank"
+                        );
+                      }}
+                      title="Open Reimbursement Bill"
+                    >
+                      {reimbInv}
+                    </Typography>
+                  </Box>
+                  {reimbDate && (
+                    <Typography variant="caption" sx={{ color: "#666", fontSize: "0.68rem", ml: 0.5 }}>
+                      Date: {reimbDate}
+                    </Typography>
+                  )}
+                </Box>
+              )}
+
+              {/* Debit Notes */}
+              {debitNoteList.map((dn, idx) => (
+                <Box key={idx} sx={{ fontSize: "0.75rem", lineHeight: 1.3 }}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                    <Chip
+                      label="Debit Note"
+                      size="small"
+                      sx={{
+                        fontSize: "0.6rem",
+                        height: "16px",
+                        backgroundColor: "#fff3e0",
+                        color: "#e65100",
+                        fontWeight: 700,
+                        "& .MuiChip-label": { px: 0.5 },
+                      }}
+                    />
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        fontWeight: "bold",
+                        color: "#e65100",
+                        cursor: dn.url ? "pointer" : "default",
+                        "&:hover": dn.url ? { textDecoration: "underline" } : {},
+                      }}
+                      onClick={() => {
+                        if (dn.url) window.open(dn.url, "_blank");
+                        else {
+                          window.open(
+                            `/reimbursement-bill/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`,
+                            "_blank"
+                          );
+                        }
+                      }}
+                      title="View Debit Note"
+                    >
+                      {dn.no}
+                    </Typography>
+                  </Box>
+                  {dn.date && (
+                    <Typography variant="caption" sx={{ color: "#666", fontSize: "0.68rem", ml: 0.5 }}>
+                      Date: {dn.date}
+                    </Typography>
+                  )}
+                </Box>
+              ))}
+            </Box>
+          );
+        },
       },
       {
         accessorKey: "bill_document_sent_to_accounts",

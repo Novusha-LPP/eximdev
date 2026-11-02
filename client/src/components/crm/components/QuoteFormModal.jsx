@@ -411,15 +411,15 @@ export default function QuoteFormModal({
       },
       lineItems: selectedTemp.defaultLineItems && selectedTemp.defaultLineItems.length > 0
         ? selectedTemp.defaultLineItems.map(i => ({
-            productName: i.productName || '',
-            hsnSac: i.hsnSac || '392310',
-            quantity: i.quantity || 1,
-            unitPrice: i.unitPrice || 0,
-            discount: i.discount || 0,
-            tax: i.tax || 18,
-            lineTotal: (i.quantity || 1) * (i.unitPrice || 0),
-            customFields: i.customFields || {}
-          }))
+          productName: i.productName || '',
+          hsnSac: i.hsnSac || '392310',
+          quantity: i.quantity || 1,
+          unitPrice: i.unitPrice || 0,
+          discount: i.discount || 0,
+          tax: i.tax || 18,
+          lineTotal: (i.quantity || 1) * (i.unitPrice || 0),
+          customFields: i.customFields || {}
+        }))
         : prev.lineItems
     }));
     message.info(`Applied template '${selectedTemp.templateName}'`);

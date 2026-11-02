@@ -1,6 +1,6 @@
 import express from "express";
 import XLSX from "xlsx";
-import RmProcurementSop from "../../model/accounts/rmProcurementSop.mjs";
+import RmProcurementSop, { statusEnumMap } from "../../model/accounts/rmProcurementSop.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
 import logger from "../../logger.js";
 
@@ -135,6 +135,10 @@ router.post("/rm-procurement", authMiddleware, async (req, res) => {
     if (existing) {
       return res.status(400).json({ success: false, message: "PR Number already exists" });
     }
+    if (req.body.status) {
+      const upper = String(req.body.status).trim().toUpperCase();
+      req.body.status = statusEnumMap[upper] || req.body.status;
+    }
     const doc = new RmProcurementSop(req.body);
     await doc.save();
     res.status(201).json({ success: true, data: computeDoc(doc.toObject()) });
@@ -157,6 +161,10 @@ router.put("/rm-procurement/:id", authMiddleware, async (req, res) => {
       if (duplicate) {
         return res.status(400).json({ success: false, message: "PR Number already exists" });
       }
+    }
+    if (req.body.status) {
+      const upper = String(req.body.status).trim().toUpperCase();
+      req.body.status = statusEnumMap[upper] || req.body.status;
     }
     const doc = await RmProcurementSop.findByIdAndUpdate(
       req.params.id,

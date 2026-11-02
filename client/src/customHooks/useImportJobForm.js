@@ -645,6 +645,9 @@ const useImportJobForm = () => {
       }));
     }
 
+    if (field === "inv_currency" && invoice_details[rowIndex]?.inv_currency !== value) {
+      updatedRows[rowIndex].exchange_rate = "";
+    }
     if (field === "freight_currency" && invoice_details[rowIndex]?.freight_currency !== value) {
       updatedRows[rowIndex].freight_exchange_rate = "";
     }
@@ -822,8 +825,11 @@ const useImportJobForm = () => {
     // Sync global CIF value (term value) across all rows converted to INR
     const totalCif = updatedRows.reduce((sum, row) => sum + (parseFloat(row.total_inv_value) || 0), 0);
     const totalProductVal = updatedRows.reduce((sum, row) => sum + (parseFloat(row.product_value) || 0), 0);
-    if (totalCif > 0 || totalProductVal > 0) {
-      setTotalInvValue(totalCif > 0 ? String(totalCif.toFixed(2)) : String(totalProductVal.toFixed(2)));
+    const isCurrencyChange = field === "inv_currency" && String(value || "").trim().length >= 3;
+    if (totalCif > 0 || totalProductVal > 0 || isCurrencyChange) {
+      if (totalCif > 0 || totalProductVal > 0) {
+        setTotalInvValue(totalCif > 0 ? String(totalCif.toFixed(2)) : String(totalProductVal.toFixed(2)));
+      }
       
       const syncCifValue = async () => {
         let totalCifInr = 0;
@@ -835,6 +841,8 @@ const useImportJobForm = () => {
           const globalRate = parseFloat(exrate);
 
           if (!curr) return { rate: 1, updated: false };
+          // Ignore partially typed currency codes (e.g. "U", "US")
+          if (String(curr).trim().length < 3) return { rate: rate || "", updated: false };
           if (curr.toUpperCase() === "INR") {
             if (parseFloat(existingRateStr) !== 1) {
               return { rate: 1, updated: true };

@@ -2399,6 +2399,8 @@ const ImportCreateJob = () => {
                                   <td style={{ padding: '8px 6px', verticalAlign: 'middle', width: '100px' }}>
                                     <Autocomplete
                                       freeSolo
+                                      autoHighlight
+                                      autoSelect
                                       size="small"
                                       options={currencyOptions}
                                       value={row.inv_currency || ""}
@@ -2440,6 +2442,8 @@ const ImportCreateJob = () => {
                                         />
                                         <Autocomplete
                                           freeSolo
+                                          autoHighlight
+                                          autoSelect
                                           size="small"
                                           options={currencyOptions}
                                           value={row.freight_currency || ""}
@@ -2484,6 +2488,8 @@ const ImportCreateJob = () => {
                                         />
                                         <Autocomplete
                                           freeSolo
+                                          autoHighlight
+                                          autoSelect
                                           size="small"
                                           options={currencyOptions}
                                           value={row.insurance_currency || ""}
@@ -2527,6 +2533,8 @@ const ImportCreateJob = () => {
                                         />
                                         <Autocomplete
                                           freeSolo
+                                          autoHighlight
+                                          autoSelect
                                           size="small"
                                           options={currencyOptions}
                                           value={row.misc_currency || row.other_charges_currency || ""}
@@ -2692,6 +2700,8 @@ const ImportCreateJob = () => {
                                 <td style={{ padding: '8px 6px', verticalAlign: 'middle', width: '120px' }}>
                                   <Autocomplete
                                     freeSolo
+                                    autoHighlight
+                                    autoSelect
                                     size="small"
                                     options={currencyOptions}
                                     value={other_charges_details?.[row.id]?.currency || ""}

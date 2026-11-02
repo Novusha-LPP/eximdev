@@ -576,14 +576,17 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate, compact = false, showDoP
             {!isExBond &&
               !isLCL &&
               !isAirMode(mode) &&
-              activeBranchConfig.railout_enabled &&
-              containers.map((c, i) =>
-                renderContainerEditor(
-                  "Rail-out",
-                  c.container_rail_out_date,
-                  "container_rail_out_date",
-                  i
-                )
+              activeBranchConfig.railout_enabled && (
+                <div>
+                  {containers.map((c, i) =>
+                    renderContainerEditor(
+                      "Rail-out",
+                      c.container_rail_out_date,
+                      "container_rail_out_date",
+                      i
+                    )
+                  )}
+                </div>
               )}
 
             {isLCL &&
@@ -598,16 +601,19 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate, compact = false, showDoP
               )}
             {lineBreak}
 
-            {!isExBond &&
-              containers.map((c, i) =>
-                renderContainerEditor(
-                  "Arrival",
-                  c.arrival_date,
-                  "arrival_date",
-                  i,
-                  true
-                )
-              )}
+            {!isExBond && (
+              <div>
+                {containers.map((c, i) =>
+                  renderContainerEditor(
+                    "Arrival",
+                    c.arrival_date,
+                    "arrival_date",
+                    i,
+                    true
+                  )
+                )}
+              </div>
+            )}
 
             {lineBreak}
             {!isLCL && !isAirMode(mode) && (
@@ -633,12 +639,14 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate, compact = false, showDoP
             {lineBreak}
             {!isLCL && !isExBond && !isAirMode(mode) && (
               <>
-                <strong>Detention F.:</strong>
-                {containers.map((c, i) => (
-                  <div key={`det-${i}`}>
-                    {formatDateDisplay(c.detention_from)}
-                  </div>
-                ))}
+                <div>
+                  <strong>Detention F.:</strong>
+                  {containers.map((c, i) => (
+                    <div key={`det-${i}`}>
+                      {formatDateDisplay(c.detention_from)}
+                    </div>
+                  ))}
+                </div>
               </>
             )}
             {lineBreak}
@@ -842,7 +850,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate, compact = false, showDoP
 });
 
 const styles = {
-  icon: { cursor: "pointer", marginLeft: 5, fontSize: 18, color: "#282828" },
+  icon: { cursor: "pointer", marginLeft: 5, fontSize: 18, color: "#282828", verticalAlign: "middle" },
   errorInput: { border: "1px solid red" },
   errorText: { color: "red", fontSize: 12, marginTop: 2 },
   submitButton: {

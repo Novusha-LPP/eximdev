@@ -925,18 +925,20 @@ async function generateSupplierPoNumbers(suppliers = [], dateInput, excludeDocId
 
   let currentSeq = maxPoSeq;
   const supplierToPo = {};
+  const poNumbersList = [];
 
   suppliers.forEach((s) => {
     const sName = (typeof s === "string" ? s : (s?.selectedSupplier || s?.supplierName || "")).trim().toUpperCase();
-    if (!sName) return;
-    if (!supplierToPo[sName]) {
-      currentSeq += 1;
-      const seqStr = String(currentSeq).padStart(2, "0");
-      supplierToPo[sName] = `PO/${cleanShortName}/${monthShort}-${seqStr}/${fyCode}`;
+    currentSeq += 1;
+    const seqStr = String(currentSeq).padStart(2, "0");
+    const nextPo = `PO/${cleanShortName}/${monthShort}-${seqStr}/${fyCode}`;
+    poNumbersList.push(nextPo);
+    if (sName && !supplierToPo[sName]) {
+      supplierToPo[sName] = nextPo;
     }
   });
 
-  return { supplierToPo, nextPoSeq: currentSeq + 1, monthShort, fyCode, companyShortName: cleanShortName };
+  return { supplierToPo, poNumbersList, nextPoSeq: currentSeq + 1, monthShort, fyCode, companyShortName: cleanShortName };
 }
 
 // Helper to generate next GRN Number

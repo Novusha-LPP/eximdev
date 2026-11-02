@@ -18,6 +18,12 @@ const MONTH_NAMES = [
 
 const UTIL_COLOR = (pct) => pct >= 90 ? '#10b981' : pct >= 80 ? '#f59e0b' : '#ef4444';
 
+/** Trend chart series. Gold text uses a deeper shade of the same hue so it stays readable on white. */
+const SRCC_COLOR = '#F0944A';
+const OUTSOURCED_COLOR = '#F8C56E';
+const OUTSOURCED_TEXT = '#C4922A';
+const SRCC_SHARE_COLOR = '#E08A4A';
+
 const KPI_COLOR = {
     notOnRoad: (pct) => pct <= 10 ? '#10b981' : pct <= 20 ? '#f59e0b' : '#ef4444',
     maintenance: (pct) => pct <= 3 ? '#10b981' : pct <= 5 ? '#f59e0b' : '#ef4444',
@@ -43,78 +49,11 @@ const getHeatBand = (value) => {
     return HEAT_BAND_MAP.high;
 };
 
-/** Earliest financial year the fleet-summary API has data for (used for "All Time") */
-const FIRST_SUMMARY_FY = 2023;
-
 const parseYmd = (s) => {
     if (!s) return null;
     const [y, m, d] = String(s).slice(0, 10).split('-').map(Number);
     if (!y || !m) return null;
     return new Date(y, m - 1, d || 1);
-};
-
-/**
- * Turns the main Filter Period into vehicle-summary columns: one column per month,
- * or one per financial year when the period is longer than 12 months.
- * Each column lists the (financial year, month) parts it adds up.
- */
-const buildPeriodColumns = (startDate, endDate, daily = false) => {
-    const today = new Date();
-    const start = parseYmd(startDate) || new Date(FIRST_SUMMARY_FY, 3, 1);
-    const end = parseYmd(endDate) || new Date(today.getFullYear(), today.getMonth(), 1);
-    if (start > end) return [];
-
-    if (daily) {
-        const days = [];
-        for (const d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-            const monthName = MONTH_NAMES.find(x => x.key === String(d.getMonth() + 1)).name;
-            const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-            days.push({
-                key: `d-${date}`,
-                date,
-                label: `${d.getDate()} ${monthName}`,
-                fullLabel: `${d.getDate()} ${monthName} ${d.getFullYear()}`,
-                parts: [],
-                future: d > today
-            });
-        }
-        return days;
-    }
-
-    const months = [];
-    let y = start.getFullYear();
-    let mo = start.getMonth() + 1;
-    while (y < end.getFullYear() || (y === end.getFullYear() && mo <= end.getMonth() + 1)) {
-        const monthKey = String(mo);
-        months.push({
-            fy: mo >= 4 ? y : y - 1,
-            year: y,
-            m: MONTH_NAMES.find(x => x.key === monthKey),
-            future: new Date(y, mo - 1, 1) > today
-        });
-        mo += 1;
-        if (mo > 12) { mo = 1; y += 1; }
-    }
-
-    if (months.length <= 12) {
-        return months.map(p => ({
-            key: `${p.year}-${p.m.key}`,
-            label: `${p.m.name} ${String(p.year).slice(-2)}`,
-            fullLabel: `${p.m.name} ${p.year}`,
-            parts: [p],
-            future: p.future
-        }));
-    }
-
-    const byFy = new Map();
-    months.forEach(p => {
-        if (!byFy.has(p.fy)) byFy.set(p.fy, []);
-        byFy.get(p.fy).push(p);
-    });
-    return [...byFy.entries()].map(([fy, parts]) => {
-        const label = `FY ${String(fy).slice(-2)}-${String(fy + 1).slice(-2)}`;
-        return { key: `fy-${fy}`, label, fullLabel: label, parts, future: parts.every(p => p.future) };
-    });
 };
 
 /** Day columns count as 1/30 of a month so their trips are projected to the monthly bands */
@@ -131,28 +70,108 @@ const extractSummaryRows = (payload) => {
     return [];
 };
 
-/** Outsourced trip count for one month from a fleet-summary payload, or null if the API didn't send it */
-const getOutsourcedFromPayload = (payload, m) => {
-    const keysToTry = [m.key, Number(m.key), String(m.key).padStart(2, '0'), m.name, m.name?.toLowerCase(), m.name?.toUpperCase(), m.label];
-    const sources = [
-        payload?.outsourced,
-        payload?.outsourcedMonths,
-        payload?.summary?.outsourced,
-        payload?.summary?.outsourcedMonths,
-        payload?.outsourcedRow?.months,
-        payload?.totals?.outsourced
-    ];
-    for (const src of sources) {
-        if (src && typeof src === 'object') {
-            for (const k of keysToTry) {
-                if (src[k] !== undefined && src[k] !== null && src[k] !== '') {
-                    const n = Number(src[k]);
-                    if (!isNaN(n)) return n;
-                }
-            }
+/** "26-27", "2026-27", or 2026 → financial-year start year 2026 */
+const parseFyStartYear = (value) => {
+    if (value == null || value === '') return null;
+    const match = String(value).trim().match(/(\d{2,4})/);
+    if (!match) return null;
+    let year = Number(match[1]);
+    if (!Number.isFinite(year)) return null;
+    if (year < 100) year += 2000;
+    return year;
+};
+
+/** April–March. April (month index 3) starts the financial year. */
+const currentFyStartYear = (date = new Date()) => (
+    date.getMonth() >= 3 ? date.getFullYear() : date.getFullYear() - 1
+);
+
+/** One column per day from startDate through endDate (yyyy-MM-dd) */
+const buildDayColumns = (startDate, endDate) => {
+    const start = parseYmd(startDate);
+    const end = parseYmd(endDate);
+    if (!start || !end || start > end) return [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const days = [];
+    for (const d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const monthName = MONTH_NAMES.find(x => x.key === String(d.getMonth() + 1))?.name || '';
+        const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const future = new Date(d.getFullYear(), d.getMonth(), d.getDate()) > today;
+        days.push({
+            key: `d-${date}`,
+            date,
+            label: `${d.getDate()} ${monthName}`,
+            fullLabel: `${d.getDate()} ${monthName} ${d.getFullYear()}`,
+            parts: [],
+            future
+        });
+    }
+    return days;
+};
+
+/** Month columns from start through end, each tagged with its financial year */
+const buildMonthColumnsBetween = (start, end) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const cols = [];
+    let y = start.getFullYear();
+    let mo = start.getMonth() + 1;
+    const endY = end.getFullYear();
+    const endM = end.getMonth() + 1;
+    while (y < endY || (y === endY && mo <= endM)) {
+        const m = MONTH_NAMES.find(x => x.key === String(mo));
+        const fy = mo >= 4 ? y : y - 1;
+        const monthStart = new Date(y, mo - 1, 1);
+        const future = monthStart > today;
+        cols.push({
+            key: `${y}-${m.key}`,
+            label: m.name,
+            fullLabel: `${m.name} ${y}`,
+            parts: [{ fy, year: y, m, future }],
+            future
+        });
+        mo += 1;
+        if (mo > 12) { mo = 1; y += 1; }
+    }
+    return cols;
+};
+
+/** One column per month of a single financial year, April through March */
+const buildFinancialYearColumns = (fyStartYear) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return MONTH_NAMES.map((m) => {
+        const monthNum = Number(m.key);
+        const year = monthNum >= 4 ? fyStartYear : fyStartYear + 1;
+        const monthStart = new Date(year, monthNum - 1, 1);
+        const future = monthStart > today;
+        return {
+            key: `${year}-${m.key}`,
+            label: m.name,
+            fullLabel: `${m.name} ${year}`,
+            parts: [{ fy: fyStartYear, year, m, future }],
+            future
+        };
+    });
+};
+
+/** Month value from a fleet-summary bucket such as summary.srcc or summary.outsourced */
+const readSummaryMonth = (bucket, m) => {
+    if (!bucket || typeof bucket !== 'object' || !m) return null;
+    const keys = [m.key, Number(m.key), String(m.key).padStart(2, '0'), m.name, m.name?.toLowerCase(), m.name?.toUpperCase(), m.label];
+    for (const k of keys) {
+        if (bucket[k] !== undefined && bucket[k] !== null && bucket[k] !== '') {
+            const n = Number(bucket[k]);
+            if (!isNaN(n)) return n;
         }
     }
     return null;
+};
+
+const summaryBucket = (payload, kind) => {
+    if (!payload || typeof payload !== 'object') return null;
+    return payload.summary?.[kind] || payload[kind] || payload[`${kind}Months`] || null;
 };
 
 // ─── Utility Functions ──────────────────────────────────────────────────────────
@@ -351,6 +370,38 @@ const OwnPill = ({ ownHired }) => {
     return <span className="status-pill-v2" data-variant={isOwn ? 'success' : 'neutral'}>{isOwn ? 'Own' : 'Hired'}</span>;
 };
 
+const formatCount = (n) => Number(n || 0).toLocaleString('en-IN');
+
+const changeText = (now, prev, pct) => {
+    if (!prev && !now) return 'No trips';
+    if (!prev && now) return 'New';
+    if (now === prev) return 'Same';
+    return `${pct >= 0 ? '▲' : '▼'} ${Math.abs(Number(pct) || 0).toFixed(1)}%`;
+};
+
+const COMPARE_WASH = ['purple', 'rose', 'mint', 'amber', 'sky', 'fuchsia', 'teal', 'gold', 'indigo', 'coral', 'cyan', 'violet'];
+
+/** Hover card for the year-comparison chart */
+const CompareTooltip = ({ active, payload, label }) => {
+    if (!active || !payload?.length) return null;
+    const row = payload[0]?.payload;
+    if (!row) return null;
+    return (
+        <div className="fleet-tooltip-v2" style={{ padding: '12px 14px', minWidth: 196 }}>
+            <div style={{ fontWeight: 800, color: '#1e1b4b', marginBottom: 8, fontFamily: "'Outfit', sans-serif" }}>{label}</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, fontSize: 12.5, fontWeight: 700, color: '#6d28d9' }}>
+                <span>This year</span><strong>{formatCount(row.totalThis)}</strong>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, fontSize: 12.5, fontWeight: 700, color: '#b45309', marginTop: 4 }}>
+                <span>Last year</span><strong>{formatCount(row.totalLast)}</strong>
+            </div>
+            <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #f1f5f9', fontSize: 12, fontWeight: 700, color: '#0f766e' }}>
+                SRCC {formatCount(row.srccThis)} · Outsourced {formatCount(row.outThis)}
+            </div>
+        </div>
+    );
+};
+
 /** Compact tooltip for the trend-tab charts */
 const FsChartTooltip = ({ active, payload, label, suffix = '' }) => {
     if (!active || !payload?.length) return null;
@@ -360,13 +411,27 @@ const FsChartTooltip = ({ active, payload, label, suffix = '' }) => {
             {title !== undefined && (
                 <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: 6, fontFamily: "'Outfit', sans-serif", fontSize: 13 }}>{title}</div>
             )}
-            {payload.filter(p => p.value !== null && p.value !== undefined).map(p => (
-                <div key={p.dataKey || p.name} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: '#475569', marginTop: 3 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.payload?.fill || p.color, flexShrink: 0 }} />
-                    <span style={{ flex: 1 }}>{p.name}</span>
-                    <strong style={{ color: '#0f172a' }}>{p.dataKey === 'share' ? `${p.value}%` : `${p.value}${suffix}`}</strong>
-                </div>
-            ))}
+            {payload.filter(p => p.value !== null && p.value !== undefined).map(p => {
+                const key = String(p.dataKey || '').toLowerCase();
+                const tone = key === 'srcclast'
+                    ? { text: '#E08A4A', dot: '#F8C9A8' }
+                    : key === 'outlast'
+                        ? { text: '#D4A017', dot: '#FDE9B0' }
+                        : key === 'share' || key.includes('share')
+                            ? { text: SRCC_SHARE_COLOR, dot: SRCC_SHARE_COLOR }
+                            : key.includes('out')
+                                ? { text: OUTSOURCED_TEXT, dot: OUTSOURCED_COLOR }
+                                : key.includes('srcc')
+                                    ? { text: SRCC_COLOR, dot: SRCC_COLOR }
+                                    : { text: p.color || '#1e293b', dot: p.color || '#1e293b' };
+                return (
+                    <div key={p.dataKey || p.name} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: tone.text, fontWeight: 700, marginTop: 3 }}>
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: tone.dot, flexShrink: 0 }} />
+                        <span style={{ flex: 1 }}>{p.name}</span>
+                        <strong>{key.includes('share') ? `${p.value}%` : `${p.value}${suffix}`}</strong>
+                    </div>
+                );
+            })}
         </div>
     );
 };
@@ -382,7 +447,7 @@ const STYLES = `
 }
 
 /* Tab Bar */
-.fleet-tabs { display: flex; gap: 10px; padding: 8px; background: rgba(255,255,255,0.5); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border-radius: 20px; width: fit-content; box-shadow: 0 4px 24px rgba(0,0,0,0.03), inset 0 1px 0 rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.6); }
+.fleet-tabs { display: flex; gap: 10px; padding: 8px; background: rgba(255,255,255,0.5); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border-radius: 28px 8px 28px 28px; width: fit-content; box-shadow: 0 4px 24px rgba(0,0,0,0.03), inset 0 1px 0 rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.6); }
 .fleet-tab { padding: 12px 26px; border-radius: 14px; font-family: 'Outfit', sans-serif; font-weight: 600; font-size: 14.5px; cursor: pointer; transition: all 0.3s cubic-bezier(0.4,0,0.2,1); border: none; background: transparent; color: #64748b; display: flex; align-items: center; gap: 8px; }
 .fleet-tab[data-active="true"] { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: #fff; box-shadow: 0 8px 20px rgba(99,102,241,0.3); font-weight: 700; }
 .fleet-tab[data-active="false"]:hover { background: rgba(99,102,241,0.08); color: #1e293b; transform: translateY(-1px); }
@@ -392,7 +457,7 @@ const STYLES = `
     background: var(--fc-bg, rgba(255, 255, 255, 0.85));
     backdrop-filter: blur(28px);
     -webkit-backdrop-filter: blur(28px);
-    border-radius: 28px 8px 28px 28px;
+    border-radius: 20px;
     border: var(--fc-border, 1px solid rgba(226, 232, 240, 0.8));
     box-shadow: 0 8px 20px -2px rgba(0, 0, 0, 0.02), inset 0 1px 0 rgba(255, 255, 255, 0.9);
     transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
@@ -498,7 +563,7 @@ const STYLES = `
 .fs-section { display: flex; flex-direction: column; gap: 18px; }
 .fs-section-head { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 14px; }
 .fs-title { margin: 0; font-family: 'Outfit', sans-serif; font-size: 20px; font-weight: 800; color: #0f172a; letter-spacing: -0.01em; }
-.fs-subtitle { display: block; margin-top: 2px; font-size: 13px; color: #64748b; font-weight: 500; }
+.fs-subtitle { display: block; margin-top: 2px; font-size: 13px; color: #475569; font-weight: 600; }
 .fs-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
 .fs-select { height: 36px; padding: 0 32px 0 12px; border-radius: 10px; border: 1px solid #dbe2ea; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2364748b' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 12px center; appearance: none; -webkit-appearance: none; color: #1e293b; font-weight: 600; font-size: 13px; cursor: pointer; outline: none; transition: border-color 0.15s, box-shadow 0.15s; }
@@ -522,27 +587,27 @@ const STYLES = `
 .fs-kpi::before { content: ''; position: absolute; left: 0; top: 14px; bottom: 14px; width: 4px; border-radius: 0 4px 4px 0; background: var(--fs-accent); }
 .fs-kpi-label { font-size: 11.5px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
 .fs-kpi-value { font-family: 'Outfit', sans-serif; font-size: 26px; font-weight: 800; color: #0f172a; line-height: 1.15; }
-.fs-kpi-hint { font-size: 12px; color: #94a3b8; font-weight: 500; }
+.fs-kpi-hint { font-size: 12px; color: #475569; font-weight: 600; }
 
 .fs-card { background: #fff; border: 1px solid #e8edf3; border-radius: 18px; padding: 18px 20px; box-shadow: 0 2px 12px rgba(15,23,42,0.03); min-width: 0; }
 .fs-card-head { margin-bottom: 12px; }
 .fs-card-head h4 { margin: 0; font-family: 'Outfit', sans-serif; font-size: 15.5px; font-weight: 700; color: #0f172a; }
-.fs-card-head span { display: block; margin-top: 2px; font-size: 12.5px; color: #64748b; }
+.fs-card-head span { display: block; margin-top: 2px; font-size: 12.5px; color: #475569; font-weight: 600; }
 .fs-chart-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); gap: 16px; }
 .fs-chart-wide { grid-column: 1 / -1; }
 @media (max-width: 1100px) { .fs-chart-grid { grid-template-columns: minmax(0, 1fr); } }
-.fs-empty { height: 100%; display: flex; align-items: center; justify-content: center; color: #94a3b8; font-size: 13px; font-weight: 500; }
+.fs-empty { height: 100%; display: flex; align-items: center; justify-content: center; color: #334155; font-size: 13px; font-weight: 600; }
 
 .fs-donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
 .fs-donut-value { font-family: 'Outfit', sans-serif; font-size: 28px; font-weight: 800; color: #0f172a; line-height: 1; }
-.fs-donut-label { margin-top: 4px; font-size: 10.5px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.08em; }
+.fs-donut-label { margin-top: 4px; font-size: 10.5px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.08em; }
 .fs-mix-legend { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; }
 .fs-mix-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 10px; border: 1px solid transparent; background: #f8fafc; cursor: pointer; text-align: left; font-size: 12.5px; transition: all 0.15s; }
 .fs-mix-item:hover { background: #f1f5f9; }
 .fs-mix-item[data-active="true"] { background: #eef2ff; border-color: #c7d2fe; }
 .fs-mix-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
 .fs-mix-name { font-weight: 700; color: #1e293b; }
-.fs-mix-range { color: #94a3b8; font-size: 11px; }
+.fs-mix-range { color: #475569; font-size: 11px; font-weight: 600; }
 .fs-mix-count { margin-left: auto; font-family: 'Outfit', sans-serif; font-weight: 800; color: #0f172a; }
 
 .fs-table-card { display: flex; flex-direction: column; gap: 12px; padding: 16px 18px; }
@@ -563,12 +628,12 @@ const STYLES = `
 .fs-link-btn { border: none; background: none; color: #4f46e5; font-weight: 600; font-size: 12.5px; cursor: pointer; padding: 4px 6px; border-radius: 6px; }
 .fs-link-btn:hover { background: #eef2ff; }
 
-.fs-table-meta { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; font-size: 12.5px; color: #64748b; }
+.fs-table-meta { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; font-size: 12.5px; color: #475569; font-weight: 600; }
 .fs-table-meta strong { color: #0f172a; }
 .fs-meta-sep { margin: 0 8px; color: #cbd5e1; }
 .fs-legend { display: inline-flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .fs-legend-item { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: #475569; }
-.fs-legend-item em { font-style: normal; color: #94a3b8; font-weight: 500; }
+.fs-legend-item em { font-style: normal; color: #475569; font-weight: 600; }
 .fs-legend-swatch { width: 14px; height: 14px; border-radius: 4px; border: 1.5px solid; }
 
 /* Vehicle summary table (sticky header, first columns and footer) */
@@ -632,7 +697,121 @@ const STYLES = `
 .fs-month-tile { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 6px; border-radius: 12px; background: var(--tile-bg); border: 1px solid #eef2f7; border-top: 3px solid var(--tile-accent); }
 .fs-month-name { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
 .fs-month-value { font-family: 'Outfit', sans-serif; font-size: 20px; font-weight: 800; line-height: 1.2; }
-.fs-month-band { font-size: 10.5px; font-weight: 600; color: #94a3b8; }
+.fs-month-band { font-size: 10.5px; font-weight: 700; color: #475569; }
+
+.yc-wrap { display: flex; flex-direction: column; gap: 14px; }
+.yc-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; background: #fff; border: 1px solid #eef0f6; border-radius: 22px; padding: 14px 18px; box-shadow: 0 8px 24px rgba(15,23,42,0.04); }
+.yc-brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.yc-icon { width: 46px; height: 46px; border-radius: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: linear-gradient(135deg, #8b7cf8, #6d5efc); color: #fff; box-shadow: 0 8px 16px rgba(109,94,252,0.32); }
+.yc-title { margin: 0; font-family: 'Outfit', sans-serif; font-size: 20px; font-weight: 800; color: #1e1b4b; letter-spacing: -0.02em; }
+.yc-sub { margin: 2px 0 0; font-size: 13px; font-weight: 600; color: #64748b; }
+.yc-header-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.yc-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 800; background: #f5f3ff; color: #6d28d9; border: 1px solid #e9e5ff; }
+.yc-chip[data-tone="mint"] { background: #ecfdf5; color: #047857; border-color: #d1fae5; }
+.yc-chip[data-tone="sky"] { background: #eff6ff; color: #1d4ed8; border-color: #dbeafe; }
+.yc-chip[data-tone="slate"] { background: #f8fafc; color: #475569; border-color: #e2e8f0; font-weight: 700; }
+.yc-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+.yc-card { display: flex; flex-direction: column; gap: 10px; border-radius: 22px; padding: 18px 18px 16px; border: 1px solid transparent; box-shadow: 0 10px 28px rgba(15,23,42,0.045); }
+.yc-card-purple { background: linear-gradient(180deg, #f6f4ff 0%, #ffffff 68%); border-color: #ece7ff; }
+.yc-card-rose { background: linear-gradient(180deg, #fff5f6 0%, #ffffff 68%); border-color: #ffe4e6; }
+.yc-card-mint { background: linear-gradient(180deg, #f0fdfa 0%, #ffffff 68%); border-color: #ccfbf1; }
+.yc-card-amber { background: linear-gradient(180deg, #fffbeb 0%, #ffffff 68%); border-color: #fef3c7; }
+.yc-card-sky { background: linear-gradient(180deg, #eff6ff 0%, #ffffff 68%); border-color: #dbeafe; }
+.yc-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.yc-kicker { font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+.yc-card-purple .yc-kicker { color: #6d28d9; }
+.yc-card-rose .yc-kicker { color: #e11d48; }
+.yc-card-mint .yc-kicker { color: #0f766e; }
+.yc-card-amber .yc-kicker { color: #b45309; }
+.yc-card-sky .yc-kicker { color: #1d4ed8; }
+.yc-hint { margin-top: 3px; font-size: 12.5px; font-weight: 600; color: #94a3b8; }
+.yc-badge { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 800; white-space: nowrap; }
+.yc-badge[data-tone="purple"] { background: #ede9fe; color: #6d28d9; }
+.yc-badge[data-tone="rose"] { background: #ffe4e6; color: #e11d48; }
+.yc-badge[data-tone="mint"] { background: #d1fae5; color: #047857; }
+.yc-badge[data-tone="amber"] { background: #ffedd5; color: #c2410c; }
+.yc-badge[data-tone="sky"] { background: #dbeafe; color: #1d4ed8; }
+.yc-badge[data-tone="slate"] { background: #f1f5f9; color: #64748b; }
+.yc-badge[data-tone="up"] { background: #dcfce7; color: #15803d; }
+.yc-badge[data-tone="down"] { background: #ffe4e6; color: #be123c; }
+.yc-badge[data-tone="flat"] { background: #fef3c7; color: #b45309; }
+.yc-big { font-family: 'Outfit', sans-serif; font-size: 40px; font-weight: 800; line-height: 1; letter-spacing: -0.03em; color: #1e1b4b; }
+.yc-big span { font-size: 15px; font-weight: 700; color: #64748b; margin-left: 6px; letter-spacing: 0; }
+.yc-card-rose .yc-big { color: #e11d48; }
+.yc-card-mint .yc-big { color: #0f766e; }
+.yc-card-amber .yc-big { color: #b45309; }
+.yc-card-sky .yc-big { color: #15803d; }
+.yc-card-foot { margin-top: auto; display: flex; flex-direction: column; gap: 10px; }
+.yc-bars { display: flex; flex-direction: column; gap: 8px; }
+.yc-bar-row { display: grid; grid-template-columns: 78px 1fr auto; gap: 8px; align-items: center; font-size: 12px; font-weight: 700; color: #475569; }
+.yc-bar-row strong { font-variant-numeric: tabular-nums; color: #1e293b; }
+.yc-track { height: 8px; border-radius: 999px; background: #f1f5f9; overflow: hidden; }
+.yc-fill { height: 100%; border-radius: 999px; min-width: 0; }
+.yc-fill.now { background: linear-gradient(90deg, #8b7cf8, #6d5efc); }
+.yc-fill.then { background: linear-gradient(90deg, #ddd6fe, #c4b5fd); }
+.yc-stat-pills { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.yc-stat { border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+.yc-stat[data-tone="green"] { background: #ecfdf5; }
+.yc-stat[data-tone="rose"] { background: #fff1f2; }
+.yc-stat[data-tone="amber"] { background: #fff7ed; }
+.yc-stat[data-tone="slate"] { background: #f8fafc; }
+.yc-stat span { font-size: 11px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: #64748b; }
+.yc-stat b { font-family: 'Outfit', sans-serif; font-size: 18px; font-weight: 800; color: #0f172a; }
+.yc-mix { height: 12px; border-radius: 999px; display: flex; overflow: hidden; background: #e2e8f0; }
+.yc-mix .own { background: linear-gradient(90deg, #8b7cf8, #6366f1); }
+.yc-mix .out { background: linear-gradient(90deg, #5eead4, #14b8a6); }
+.yc-mini-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.yc-mini { border-radius: 16px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; }
+.yc-mini.own { background: linear-gradient(180deg, #f5f3ff, #ede9fe); }
+.yc-mini.out { background: linear-gradient(180deg, #ecfdf5, #d1fae5); }
+.yc-mini .lbl { font-size: 11px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; }
+.yc-mini.own .lbl { color: #6d28d9; }
+.yc-mini.out .lbl { color: #047857; }
+.yc-mini .num { font-family: 'Outfit', sans-serif; font-size: 22px; font-weight: 800; color: #0f172a; line-height: 1; }
+.yc-mini .num em { font-style: normal; font-size: 12.5px; font-weight: 700; color: #64748b; margin-left: 6px; }
+.yc-foot-note { font-size: 12px; font-weight: 700; color: #64748b; }
+.yc-panel { background: #fff; border: 1px solid #eef0f6; border-radius: 22px; padding: 16px 18px 18px; box-shadow: 0 10px 28px rgba(15,23,42,0.04); }
+.yc-panel-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 6px; flex-wrap: wrap; }
+.yc-panel-head h4 { margin: 0; font-family: 'Outfit', sans-serif; font-size: 16px; font-weight: 800; color: #1e1b4b; }
+.yc-panel-head p { margin: 3px 0 0; font-size: 12.5px; font-weight: 600; color: #64748b; }
+.yc-legend { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+.yc-legend span { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #475569; }
+.yc-dot { width: 10px; height: 10px; border-radius: 99px; display: inline-block; }
+.yc-dot.own { background: #7c6bf5; }
+.yc-dot.out { background: #14b8a6; }
+.yc-dot.then { background: #f59e0b; }
+.yc-insights { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 12px; }
+.yc-insight { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 800; }
+.yc-insight[data-tone="green"] { background: #dcfce7; color: #15803d; }
+.yc-insight[data-tone="rose"] { background: #ffe4e6; color: #be123c; }
+.yc-insight[data-tone="purple"] { background: #ede9fe; color: #6d28d9; }
+.yc-insight[data-tone="amber"] { background: #ffedd5; color: #c2410c; }
+.yc-months { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+.yc-month { --yc-stripe: #c4b5fd; display: flex; flex-direction: column; gap: 8px; border-radius: 18px; padding: 12px 12px 12px 14px; border: 1px solid #eef0f6; border-left: 4px solid var(--yc-stripe); min-width: 0; }
+.yc-month[data-tone="up"] { --yc-stripe: #22c55e; }
+.yc-month[data-tone="down"] { --yc-stripe: #fb7185; }
+.yc-month[data-tone="flat"] { --yc-stripe: #fbbf24; }
+.yc-month[data-tone="soon"] { --yc-stripe: #cbd5e1; background: #f8fafc !important; border-color: #e2e8f0 !important; }
+.yc-month[data-wash="purple"] { background: linear-gradient(180deg, #f5f3ff, #fff 78%); border-color: #e9e5ff; }
+.yc-month[data-wash="rose"] { background: linear-gradient(180deg, #fff1f2, #fff 78%); border-color: #ffe4e6; }
+.yc-month[data-wash="mint"] { background: linear-gradient(180deg, #ecfdf5, #fff 78%); border-color: #d1fae5; }
+.yc-month[data-wash="amber"] { background: linear-gradient(180deg, #fff7ed, #fff 78%); border-color: #ffedd5; }
+.yc-month[data-wash="sky"] { background: linear-gradient(180deg, #eff6ff, #fff 78%); border-color: #dbeafe; }
+.yc-month[data-wash="fuchsia"] { background: linear-gradient(180deg, #fdf4ff, #fff 78%); border-color: #f5d0fe; }
+.yc-month[data-wash="teal"] { background: linear-gradient(180deg, #f0fdfa, #fff 78%); border-color: #ccfbf1; }
+.yc-month[data-wash="gold"] { background: linear-gradient(180deg, #fefce8, #fff 78%); border-color: #fef08a; }
+.yc-month[data-wash="indigo"] { background: linear-gradient(180deg, #eef2ff, #fff 78%); border-color: #e0e7ff; }
+.yc-month[data-wash="coral"] { background: linear-gradient(180deg, #fff1f2, #fff 78%); border-color: #fecdd3; }
+.yc-month[data-wash="cyan"] { background: linear-gradient(180deg, #ecfeff, #fff 78%); border-color: #cffafe; }
+.yc-month[data-wash="violet"] { background: linear-gradient(180deg, #faf5ff, #fff 78%); border-color: #ede9fe; }
+.yc-month-top { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.yc-month-name { font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 14px; color: #1e1b4b; }
+.yc-month-now { font-family: 'Outfit', sans-serif; font-size: 26px; font-weight: 800; color: #0f172a; line-height: 1; }
+.yc-month-then { font-size: 12px; font-weight: 700; color: #94a3b8; }
+.yc-month-split { display: flex; justify-content: space-between; gap: 8px; font-size: 11.5px; font-weight: 800; }
+.yc-month-split .own { color: #6d28d9; }
+.yc-month-split .out { color: #0f766e; }
+.yc-note { padding: 28px 16px; text-align: center; color: #64748b; font-weight: 700; }
 @keyframes fs-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes fs-pop { from { opacity: 0; transform: translateY(12px) scale(0.98); } to { opacity: 1; transform: none; } }
 `;
@@ -659,12 +838,78 @@ const FleetUtilizationReport = ({
     const [fleetMonthFilter, setFleetMonthFilter] = useState('all');
     const [selectedVehicleTrend, setSelectedVehicleTrend] = useState(null);
 
-    // Vehicle-summary columns follow the main Filter Period (day columns for Day/Week, month or FY columns otherwise)
-    const isDailyPeriod = filterType === 'day' || filterType === 'week';
+    // Month Wise stores the financial-year start. January–March belong to the next calendar year.
+    const calendarYear = useMemo(() => {
+        const year = parseInt(selectedYear, 10);
+        if (filterType === 'month' && Number.isFinite(year)) {
+            const monthIndex = parseInt(selectedMonth, 10);
+            if (Number.isFinite(monthIndex) && monthIndex < 3) return String(year + 1);
+        }
+        return selectedYear;
+    }, [filterType, selectedYear, selectedMonth]);
+
+    // Year Wise stores the financial-year start (2026 → 2026-27). Month Wise does too:
+    // April–December use that start year, January–March use the following calendar year.
+    const fyStartYear = useMemo(() => {
+        if (filterType === 'fin-year' || filterType === 'financial-year' || filterType === 'all') {
+            return parseFyStartYear(selectedFinancialYear) ?? currentFyStartYear();
+        }
+        if (filterType === 'year' || filterType === 'month') {
+            const year = parseInt(selectedYear, 10);
+            return Number.isFinite(year) ? year : currentFyStartYear();
+        }
+        if (filterType === 'quarter') {
+            const year = parseInt(selectedYear, 10);
+            const quarter = parseInt(selectedQuarter, 10) || 1;
+            if (Number.isFinite(year)) {
+                const firstMonth = (quarter - 1) * 3;
+                return firstMonth >= 3 ? year : year - 1;
+            }
+        }
+        const { startDate } = getTransportDates(filterType, selectedDay, calendarYear, selectedMonth, selectedQuarter, dateRange);
+        const anchor = parseYmd(startDate);
+        if (anchor) return anchor.getMonth() >= 3 ? anchor.getFullYear() : anchor.getFullYear() - 1;
+        return parseFyStartYear(selectedFinancialYear) ?? currentFyStartYear();
+    }, [filterType, selectedFinancialYear, selectedYear, calendarYear, selectedMonth, selectedQuarter, selectedDay, dateRange]);
+
+    const isDailyPeriod = filterType === 'day' || filterType === 'week'
+        || (filterType === 'date-range' && dateRange?.start && dateRange?.end && (() => {
+            const start = parseYmd(dateRange.start);
+            const end = parseYmd(dateRange.end);
+            if (!start || !end) return false;
+            return Math.round((end - start) / 86400000) + 1 <= 31;
+        })());
+
     const periodColumns = useMemo(() => {
-        const { startDate, endDate } = getTransportDates(filterType, selectedDay, selectedYear, selectedMonth, selectedQuarter, dateRange);
-        return buildPeriodColumns(startDate, endDate, filterType === 'day' || filterType === 'week');
-    }, [filterType, selectedDay, selectedYear, selectedMonth, selectedQuarter, dateRange]);
+        const fyColumns = buildFinancialYearColumns(fyStartYear);
+        if (filterType === 'year' || filterType === 'all' || filterType === 'fin-year' || filterType === 'financial-year') {
+            return fyColumns;
+        }
+        if (isDailyPeriod) {
+            const { startDate, endDate } = getTransportDates(filterType, selectedDay, calendarYear, selectedMonth, selectedQuarter, dateRange);
+            return buildDayColumns(startDate, endDate);
+        }
+        if (filterType === 'month') {
+            const monthIndex = parseInt(selectedMonth, 10);
+            const monthKey = String(monthIndex + 1);
+            const calendarYear = monthIndex >= 3 ? fyStartYear : fyStartYear + 1;
+            const match = fyColumns.filter(c => c.parts[0].year === calendarYear && c.parts[0].m.key === monthKey);
+            return match.length ? match : fyColumns;
+        }
+        if (filterType === 'quarter') {
+            const quarter = parseInt(selectedQuarter, 10) || 1;
+            const year = parseInt(selectedYear, 10);
+            const keys = [0, 1, 2].map(i => ({ year, key: String((quarter - 1) * 3 + 1 + i) }));
+            const match = fyColumns.filter(c => keys.some(k => c.parts[0].year === k.year && c.parts[0].m.key === k.key));
+            return match.length ? match : fyColumns;
+        }
+        if (filterType === 'date-range' && dateRange?.start && dateRange?.end) {
+            const start = parseYmd(dateRange.start);
+            const end = parseYmd(dateRange.end);
+            if (start && end && start <= end) return buildMonthColumnsBetween(start, end);
+        }
+        return fyColumns;
+    }, [fyStartYear, filterType, isDailyPeriod, selectedDay, selectedYear, selectedMonth, selectedQuarter, dateRange]);
     const periodFysKey = useMemo(
         () => [...new Set(periodColumns.flatMap(c => c.parts.map(p => p.fy)))].join(','),
         [periodColumns]
@@ -683,7 +928,7 @@ const FleetUtilizationReport = ({
         const fetchReport = async () => {
             setLoading(true);
             try {
-                const { startDate, endDate } = getTransportDates(filterType, selectedDay, selectedYear, selectedMonth, selectedQuarter, dateRange);
+                const { startDate, endDate } = getTransportDates(filterType, selectedDay, calendarYear, selectedMonth, selectedQuarter, dateRange);
                 const params = { limit: 999999 };
                 if (startDate) params.startDate = startDate;
                 if (endDate) params.endDate = endDate;
@@ -868,7 +1113,11 @@ const FleetUtilizationReport = ({
     // Fetch Fleet Summary (Trend tab)
     // The API returns one financial year per call, so fetch every FY the period touches
     const fetchFleetSummary = useCallback(async () => {
-        const fys = periodFysKey ? periodFysKey.split(',').map(Number) : [];
+        const fys = [...new Set([
+            ...(periodFysKey ? periodFysKey.split(',').filter(Boolean).map(Number) : []),
+            fyStartYear,
+            fyStartYear - 1
+        ].filter(year => Number.isFinite(year)))];
         if (!fys.length) {
             setFleetSummaryByFy({});
             return;
@@ -889,10 +1138,10 @@ const FleetUtilizationReport = ({
         } finally {
             setFleetSummaryLoading(false);
         }
-    }, [periodFysKey]);
+    }, [periodFysKey, fyStartYear]);
 
     useEffect(() => {
-        if (activeTab === 'fleet-summary' || activeTab === 'trend') {
+        if (activeTab === 'fleet-summary' || activeTab === 'trend' || activeTab === 'compare') {
             fetchFleetSummary();
         }
     }, [activeTab, fetchFleetSummary]);
@@ -1125,7 +1374,7 @@ const FleetUtilizationReport = ({
     // ── KPI Metrics (Avg Trips/Day, Projections) ────────────────────────────────
 
     const kpiMetricsObj = useMemo(() => {
-        const { elapsedDays, totalDays } = computeElapsedDays(filterType, selectedYear, selectedMonth, selectedQuarter, dateRange, dailyData.length, selectedDay);
+        const { elapsedDays, totalDays } = computeElapsedDays(filterType, calendarYear, selectedMonth, selectedQuarter, dateRange, dailyData.length, selectedDay);
         const totalTrips = closedLRsList.length;
         const mundraTrips = closedLRsList.filter(r => (r.branch || '').toLowerCase().includes('mundra')).length;
         const avgTripsPerDay = elapsedDays > 0 ? totalTrips / elapsedDays : 0;
@@ -1204,7 +1453,7 @@ const FleetUtilizationReport = ({
         });
 
         const list = Object.values(branches);
-        const { elapsedDays, totalDays } = computeElapsedDays(filterType, selectedYear, selectedMonth, selectedQuarter, dateRange, dailyData.length, selectedDay);
+        const { elapsedDays, totalDays } = computeElapsedDays(filterType, calendarYear, selectedMonth, selectedQuarter, dateRange, dailyData.length, selectedDay);
         const periodTotalDays = totalDays || 30;
 
         let g20 = 0, go20 = 0, gh20 = 0, g40 = 0, go40 = 0, gh40 = 0, gO = 0, goO = 0, ghO = 0, gT = 0, rawAvg = 0, rawProj = 0;
@@ -1308,11 +1557,7 @@ const FleetUtilizationReport = ({
         return 0;
     }, []);
 
-    /**
-     * One merged row per vehicle:
-     * - Day/Week: { vehicleNo, byDay: { 'yyyy-MM-dd': ownTrips } } built from the dashboard's dispatch data
-     * - otherwise: { vehicleNo, byFy: { [fyStartYear]: apiRow } } from the fleet-summary API
-     */
+    /** One row per vehicle. Day/week columns count own trips from dispatch; other periods use fleet-summary. */
     const rawSummaryRows = useMemo(() => {
         const map = new Map();
         if (isDailyPeriod) {
@@ -1351,19 +1596,29 @@ const FleetUtilizationReport = ({
         return col.parts.reduce((sum, p) => sum + getVehicleMonthVal(row?.byFy?.[p.fy], p.m), 0);
     }, [getVehicleMonthVal]);
 
-    const getVehicleTotal = useCallback((row) => (
-        periodColumns.reduce((sum, col) => sum + getColumnVal(row, col), 0)
-    ), [periodColumns, getColumnVal]);
+    const showingFullFy = !isDailyPeriod && periodColumns.length === 12 && periodColumns.every(c => !c.date);
 
-    const isFyColumns = periodColumns.some(c => c.key.startsWith('fy-'));
-    const periodLabel = periodColumns.length === 0
-        ? '—'
-        : periodColumns.length === 1
-            ? periodColumns[0].fullLabel
-            : `${periodColumns[0].fullLabel} – ${periodColumns[periodColumns.length - 1].fullLabel}`;
+    const getVehicleTotal = useCallback((row) => {
+        if (showingFullFy) {
+            const apiRow = row?.byFy?.[fyStartYear];
+            if (apiRow && apiRow.total !== undefined && apiRow.total !== null && apiRow.total !== '') {
+                const total = Number(apiRow.total);
+                if (!isNaN(total)) return total;
+            }
+        }
+        return periodColumns.reduce((sum, col) => sum + getColumnVal(row, col), 0);
+    }, [showingFullFy, fyStartYear, periodColumns, getColumnVal]);
 
-    const periodUnit = isDailyPeriod ? 'day' : isFyColumns ? 'year' : 'month';
-    const periodAdjective = { day: 'Daily', month: 'Monthly', year: 'Yearly' }[periodUnit];
+    const fyLabel = `${fyStartYear}-${String(fyStartYear + 1).slice(-2)}`;
+    const periodLabel = showingFullFy
+        ? fyLabel
+        : periodColumns.length === 0
+            ? '—'
+            : periodColumns.length === 1
+                ? periodColumns[0].fullLabel
+                : `${periodColumns[0].fullLabel} – ${periodColumns[periodColumns.length - 1].fullLabel}`;
+    const periodUnit = isDailyPeriod ? 'day' : 'month';
+    const periodAdjective = isDailyPeriod ? 'Daily' : 'Monthly';
 
     const periodElapsedMonths = useMemo(() => {
         const elapsed = periodColumns.reduce((sum, c) => {
@@ -1451,31 +1706,35 @@ const FleetUtilizationReport = ({
     const fleetAggregates = useMemo(() => {
         const rows = rawSummaryRows;
         const pct = (part, whole) => (whole > 0 ? ((part / whole) * 100).toFixed(2) + '%' : '0.00%');
-
-        // Outsourced counts come from the API when present, else from the dashboard's daily data
-        const outsourcedForPart = (p) => {
-            const fromApi = getOutsourcedFromPayload(fleetSummaryByFy[p.fy], p.m);
-            if (fromApi !== null) return fromApi;
-            if (!Array.isArray(dailyData)) return 0;
-            return dailyData.reduce((count, d) => {
-                const dt = d.date ? new Date(d.date) : null;
-                if (dt && !isNaN(dt.getTime()) && dt.getFullYear() === p.year && String(dt.getMonth() + 1) === p.m.key) {
-                    return count + Number(d.outsourcedTotal || d.hiredTrips || 0);
-                }
-                return count;
-            }, 0);
-        };
-
-        const         srccMonths = {}, outsourcedMonths = {}, grandMonths = {}, srccUtilMonths = {}, outsourcedUtilMonths = {};
         const hiredByDate = new Map((dailyData || []).map(d => [d.dateStr, Number(d.hiredTrips || 0)]));
+
+        // Month columns use fleet-summary summary.srcc / summary.outsourced for that month.
+        // Day columns use the dispatch-range counts for those dates.
+        const srccMonths = {}, outsourcedMonths = {}, grandMonths = {}, srccUtilMonths = {}, outsourcedUtilMonths = {};
         periodColumns.forEach(col => {
-            srccMonths[col.key] = rows.reduce((sum, r) => sum + getColumnVal(r, col), 0);
-            outsourcedMonths[col.key] = col.date
-                ? (hiredByDate.get(col.date) || 0)
-                : col.parts.reduce((sum, p) => sum + outsourcedForPart(p), 0);
-            grandMonths[col.key] = srccMonths[col.key] + outsourcedMonths[col.key];
-            srccUtilMonths[col.key] = pct(srccMonths[col.key], grandMonths[col.key]);
-            outsourcedUtilMonths[col.key] = pct(outsourcedMonths[col.key], grandMonths[col.key]);
+            if (col.date) {
+                const srcc = rows.reduce((sum, r) => sum + getColumnVal(r, col), 0);
+                const outsourced = hiredByDate.get(col.date) || 0;
+                srccMonths[col.key] = srcc;
+                outsourcedMonths[col.key] = outsourced;
+                grandMonths[col.key] = srcc + outsourced;
+                srccUtilMonths[col.key] = pct(srcc, srcc + outsourced);
+                outsourcedUtilMonths[col.key] = pct(outsourced, srcc + outsourced);
+                return;
+            }
+            const part = col.parts[0];
+            const payload = fleetSummaryByFy[part?.fy];
+            const srccFromApi = readSummaryMonth(summaryBucket(payload, 'srcc'), part?.m);
+            const outsourcedFromApi = readSummaryMonth(summaryBucket(payload, 'outsourced'), part?.m);
+            const srcc = srccFromApi !== null
+                ? srccFromApi
+                : rows.reduce((sum, r) => sum + getColumnVal(r, col), 0);
+            const outsourced = outsourcedFromApi !== null ? outsourcedFromApi : 0;
+            srccMonths[col.key] = srcc;
+            outsourcedMonths[col.key] = outsourced;
+            grandMonths[col.key] = srcc + outsourced;
+            srccUtilMonths[col.key] = pct(srcc, srcc + outsourced);
+            outsourcedUtilMonths[col.key] = pct(outsourced, srcc + outsourced);
         });
         const srccTotal = Object.values(srccMonths).reduce((a, b) => a + b, 0);
         const outsourcedTotal = Object.values(outsourcedMonths).reduce((a, b) => a + b, 0);
@@ -1489,6 +1748,71 @@ const FleetUtilizationReport = ({
             outsourcedUtilMonths, outsourcedUtilTotal: pct(outsourcedTotal, grandTotal)
         };
     }, [rawSummaryRows, periodColumns, fleetSummaryByFy, dailyData, getColumnVal]);
+
+    const yearCompare = useMemo(() => {
+        const thisFy = fyStartYear;
+        const lastFy = thisFy - 1;
+        const thisCols = buildFinancialYearColumns(thisFy);
+        const lastCols = buildFinancialYearColumns(lastFy);
+        const thisPayload = fleetSummaryByFy[thisFy];
+        const lastPayload = fleetSummaryByFy[lastFy];
+        const deltaPct = (now, prev) => (prev > 0 ? ((now - prev) / prev) * 100 : (now > 0 ? 100 : 0));
+        const shareOf = (part, total) => (total > 0 ? Math.round((part / total) * 100) : 0);
+        const rows = thisCols.map((col, i) => {
+            const srccThis = readSummaryMonth(summaryBucket(thisPayload, 'srcc'), col.parts[0].m) || 0;
+            const outThis = readSummaryMonth(summaryBucket(thisPayload, 'outsourced'), col.parts[0].m) || 0;
+            const srccLast = readSummaryMonth(summaryBucket(lastPayload, 'srcc'), lastCols[i].parts[0].m) || 0;
+            const outLast = readSummaryMonth(summaryBucket(lastPayload, 'outsourced'), lastCols[i].parts[0].m) || 0;
+            const totalThis = col.future ? 0 : srccThis + outThis;
+            const totalLast = srccLast + outLast;
+            return {
+                month: col.label,
+                future: col.future,
+                srccThis, srccLast, outThis, outLast,
+                srccDelta: deltaPct(srccThis, srccLast),
+                outDelta: deltaPct(outThis, outLast),
+                totalThis,
+                totalLast,
+                totalDelta: col.future ? 0 : deltaPct(totalThis, totalLast),
+                ownShareThis: col.future ? 0 : shareOf(srccThis, totalThis),
+                ownShareLast: shareOf(srccLast, totalLast)
+            };
+        });
+        const elapsed = rows.filter(row => !row.future);
+        const sum = (list, key) => list.reduce((total, row) => total + (Number(row[key]) || 0), 0);
+        const srccThis = sum(elapsed, 'srccThis');
+        const srccLast = sum(elapsed, 'srccLast');
+        const outThis = sum(elapsed, 'outThis');
+        const outLast = sum(elapsed, 'outLast');
+        const totalThis = srccThis + outThis;
+        const totalLast = srccLast + outLast;
+        const aheadMonths = elapsed.filter(row => row.totalThis > row.totalLast);
+        const behindMonths = elapsed.filter(row => row.totalThis < row.totalLast);
+        const span = elapsed.length
+            ? `${elapsed[0].month}–${elapsed[elapsed.length - 1].month}`
+            : 'Apr–Mar';
+        return {
+            thisLabel: `${thisFy}-${String(thisFy + 1).slice(-2)}`,
+            lastLabel: `${lastFy}-${String(lastFy + 1).slice(-2)}`,
+            rows,
+            chartRows: elapsed,
+            ytd: {
+                srccThis, srccLast, outThis, outLast,
+                srccDelta: deltaPct(srccThis, srccLast),
+                outDelta: deltaPct(outThis, outLast),
+                totalThis, totalLast,
+                totalDelta: deltaPct(totalThis, totalLast),
+                ownShareThis: shareOf(srccThis, totalThis),
+                ownShareLast: shareOf(srccLast, totalLast)
+            },
+            aheadCount: aheadMonths.length,
+            behindCount: behindMonths.length,
+            bestMonth: [...aheadMonths].sort((a, b) => b.totalDelta - a.totalDelta)[0] || null,
+            softMonth: [...behindMonths].sort((a, b) => a.totalDelta - b.totalDelta)[0] || null,
+            span,
+            ready: Boolean(thisPayload || lastPayload)
+        };
+    }, [fyStartYear, fleetSummaryByFy]);
 
     const fleetSummaryKpis = useMemo(() => {
         const totalVehicles = rawSummaryRows.length;
@@ -1847,7 +2171,7 @@ const FleetUtilizationReport = ({
             workbook.creator = 'Exim Application';
             const ws = workbook.addWorksheet('Completed Trips');
 
-            const { startDate, endDate } = getTransportDates(filterType, selectedDay, selectedYear, selectedMonth, selectedQuarter, dateRange);
+            const { startDate, endDate } = getTransportDates(filterType, selectedDay, calendarYear, selectedMonth, selectedQuarter, dateRange);
             const dateRangeStr = startDate && endDate ? `${startDate} to ${endDate}` : startDate || endDate || 'Selected Period';
 
             // Title
@@ -2048,7 +2372,8 @@ const FleetUtilizationReport = ({
                     {[
                         { id: 'dashboard', label: '📊 Dashboard' },
                         { id: 'spreadsheet', label: '🗂️ Spreadsheet' },
-                        { id: 'trend', label: '📈 Trend' }
+                        { id: 'trend', label: '📈 Trend' },
+                        { id: 'compare', label: '🆚 Compare' }
                     ].map(tab => (
                         <button key={tab.id} className="fleet-tab" data-active={String(activeTab === tab.id || (tab.id === 'trend' && activeTab === 'fleet-summary'))}
                             onClick={() => setActiveTab(tab.id)}>
@@ -2477,7 +2802,7 @@ const FleetUtilizationReport = ({
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                         {[
                             { label: 'Fleet Size', value: metrics.fleetSize, color: '#6366f1', gradient: 'linear-gradient(135deg, rgba(99,102,241,0.1), transparent)' },
-                            { label: 'Total Trips', value: metrics.totalTrips, color: '#8b5cf6', gradient: 'linear-gradient(135deg, rgba(139,92,246,0.1), transparent)' }
+                            { label: 'Total Trips', value: fleetAggregates.grandTotal.toLocaleString('en-IN'), color: '#8b5cf6', gradient: 'linear-gradient(135deg, rgba(139,92,246,0.1), transparent)' }
                         ].map((m, i) => <KpiCard key={i} {...m} />)}
                     </div>
 
@@ -2487,8 +2812,9 @@ const FleetUtilizationReport = ({
                             <div>
                                 <h3 className="fs-title">Vehicle Trip Summary</h3>
                                 <span className="fs-subtitle">
-                                    {periodAdjective === 'Daily' ? 'Day-wise' : periodAdjective === 'Yearly' ? 'Year-wise' : 'Month-wise'} trips for every vehicle · {periodLabel}
-                                    {isDailyPeriod && ' · bands use trips per day × 30'}
+                                    {isDailyPeriod ? 'Day-wise' : 'Month-wise'} trips for every vehicle · {periodLabel}
+                                    {showingFullFy ? ` (Apr ${fyStartYear} – Mar ${fyStartYear + 1})` : ''}
+                                    {isDailyPeriod ? ' · bands use trips per day × 30' : ''}
                                 </span>
                             </div>
                             <div className="fs-actions">
@@ -2529,9 +2855,10 @@ const FleetUtilizationReport = ({
                         <div className="fs-kpi-grid">
                             {[
                                 { label: 'Active Vehicles', value: fleetSummaryKpis.activeVehicles, hint: `of ${fleetSummaryKpis.totalVehicles} vehicles in fleet`, color: '#4f46e5' },
-                                { label: 'SRCC Trips', value: fleetSummaryKpis.srccTrips.toLocaleString('en-IN'), hint: `${fleetSummaryKpis.outsourcedTrips.toLocaleString('en-IN')} outsourced trips`, color: '#0ea5e9' },
-                                { label: 'Avg Trips / Vehicle / Month', value: fleetSummaryKpis.avgPerVehicleMonth.toFixed(1), hint: isDailyPeriod ? 'projected from daily trips' : `across ${periodElapsedMonths} month${periodElapsedMonths === 1 ? '' : 's'}`, color: '#10b981' },
-                                { label: 'SRCC Share', value: fleetAggregates.srccUtilTotal, hint: 'of all trips (SRCC + outsourced)', color: '#7c3aed' }
+                                { label: 'SRCC Trips', value: fleetSummaryKpis.srccTrips.toLocaleString('en-IN'), hint: `${fleetAggregates.srccUtilTotal} of all trips`, color: SRCC_COLOR },
+                                { label: 'Outsourced Trips', value: (fleetSummaryKpis.outsourcedTrips || 0).toLocaleString('en-IN'), hint: `${fleetAggregates.outsourcedUtilTotal} of all trips`, color: OUTSOURCED_COLOR },
+                                { label: 'SRCC Share', value: fleetAggregates.srccUtilTotal, hint: 'of all trips (company fleet)', color: '#7c3aed' },
+                                { label: 'Outsourced Share', value: fleetAggregates.outsourcedUtilTotal, hint: 'of all trips (market / hired)', color: '#ea580c' }
                             ].map(k => (
                                 <div key={k.label} className="fs-kpi" style={{ '--fs-accent': k.color }}>
                                     <span className="fs-kpi-label">{k.label}</span>
@@ -2553,14 +2880,14 @@ const FleetUtilizationReport = ({
                                         <ResponsiveContainer>
                                             <ComposedChart data={monthlyMixData} margin={{ top: 10, right: 0, left: -12, bottom: 0 }}>
                                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef2f7" />
-                                                <XAxis dataKey="month" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
-                                                <YAxis yAxisId="trips" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
-                                                <YAxis yAxisId="share" orientation="right" domain={[0, 100]} stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} tickFormatter={v => `${v}%`} />
-                                                <Tooltip content={<FsChartTooltip />} cursor={{ fill: 'rgba(99,102,241,0.06)' }} />
-                                                <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '8px' }} />
-                                                <Bar yAxisId="trips" dataKey="srcc" name="SRCC" stackId="trips" fill="#6366f1" maxBarSize={36} />
-                                                <Bar yAxisId="trips" dataKey="outsourced" name="Outsourced" stackId="trips" fill="#fde68a" radius={[6, 6, 0, 0]} maxBarSize={36} />
-                                                <Line yAxisId="share" type="monotone" dataKey="share" name="SRCC Share %" stroke="#6ee7b7" strokeWidth={2.5} dot={{ r: 3, strokeWidth: 0, fill: '#6ee7b7' }} activeDot={{ r: 5 }} />
+                                                <XAxis dataKey="month" stroke="#64748b" fontSize={11} tickLine={false} axisLine={false} />
+                                                <YAxis yAxisId="trips" stroke="#64748b" fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
+                                                <YAxis yAxisId="share" orientation="right" domain={[0, 100]} stroke="#64748b" fontSize={11} tickLine={false} axisLine={false} tickFormatter={v => `${v}%`} />
+                                                <Tooltip content={<FsChartTooltip />} cursor={{ fill: 'rgba(240,148,74,0.08)' }} />
+                                                <Legend iconType="circle" wrapperStyle={{ fontSize: '12.5px', fontWeight: 700, paddingTop: '8px', color: '#1e293b' }} />
+                                                <Bar yAxisId="trips" dataKey="srcc" name="SRCC" stackId="trips" fill={SRCC_COLOR} maxBarSize={36} />
+                                                <Bar yAxisId="trips" dataKey="outsourced" name="Outsourced" stackId="trips" fill={OUTSOURCED_COLOR} radius={[6, 6, 0, 0]} maxBarSize={36} />
+                                                <Line yAxisId="share" type="monotone" dataKey="share" name="SRCC Share %" stroke={SRCC_SHARE_COLOR} strokeWidth={2.5} dot={{ r: 3, strokeWidth: 0, fill: SRCC_SHARE_COLOR }} activeDot={{ r: 5 }} />
                                             </ComposedChart>
                                         </ResponsiveContainer>
                                     ) : (
@@ -2785,9 +3112,7 @@ const FleetUtilizationReport = ({
                                                                 const band = getHeatBand(val / getColumnElapsed(m));
                                                                 return (
                                                                     <td key={m.key} data-focus={String(fleetMonthFilter === m.key)}>
-                                                                        {m.future && val === 0 ? (
-                                                                            <span className="fs-heat-empty">–</span>
-                                                                        ) : band.key === 'idle' ? (
+                                                                        {band.key === 'idle' ? (
                                                                             <span className="fs-heat-empty">0</span>
                                                                         ) : (
                                                                             <span className="fs-heat" style={{ background: band.bg, color: band.text }}>{val}</span>
@@ -2931,6 +3256,223 @@ const FleetUtilizationReport = ({
                     )}
                 </div>
             )}
+
+            {activeTab === 'compare' && (() => {
+                const ytd = yearCompare.ytd;
+                const tripGap = ytd.totalThis - ytd.totalLast;
+                const pace = tripGap > 0 ? 'up' : tripGap < 0 ? 'down' : 'flat';
+                const paceCard = pace === 'up' ? 'sky' : pace === 'down' ? 'rose' : 'amber';
+                const paceTitle = pace === 'up' ? 'Ahead of last year' : pace === 'down' ? 'Behind last year' : 'Level with last year';
+                const gapCopy = tripGap === 0
+                    ? `Same trip count as ${yearCompare.lastLabel}`
+                    : `${formatCount(Math.abs(tripGap))} ${tripGap > 0 ? 'more' : 'fewer'} trips than ${yearCompare.lastLabel}`;
+                const barMax = Math.max(ytd.totalThis, ytd.totalLast, 1);
+                const monthTone = (row) => {
+                    if (row.future) return 'soon';
+                    if (row.totalThis > row.totalLast) return 'up';
+                    if (row.totalThis < row.totalLast) return 'down';
+                    return 'flat';
+                };
+                return (
+                <div className="yc-wrap">
+                    <div className="yc-header">
+                        <div className="yc-brand">
+                            <div className="yc-icon" aria-hidden="true">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                                    <rect x="3" y="12" width="4" height="8" rx="1.2" fill="white" opacity="0.7" />
+                                    <rect x="10" y="7" width="4" height="13" rx="1.2" fill="white" />
+                                    <rect x="17" y="4" width="4" height="16" rx="1.2" fill="white" opacity="0.85" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 className="yc-title">Year comparison</h3>
+                                <p className="yc-sub">SRCC and outsourced trips, same months side by side</p>
+                            </div>
+                        </div>
+                        <div className="yc-header-meta">
+                            <span className="yc-chip">{yearCompare.thisLabel}</span>
+                            <span className="yc-chip" data-tone="slate">vs</span>
+                            <span className="yc-chip" data-tone="mint">{yearCompare.lastLabel}</span>
+                            <span className="yc-chip" data-tone="sky">{yearCompare.span}</span>
+                        </div>
+                    </div>
+
+                    {fleetSummaryError && !yearCompare.ready ? (
+                        <div className="fs-error"><span>{fleetSummaryError}</span></div>
+                    ) : fleetSummaryLoading && !yearCompare.ready ? (
+                        <div className="fs-empty" style={{ height: 220 }}>Loading year comparison...</div>
+                    ) : (
+                        <>
+                            <div className="yc-cards">
+                                <div className="yc-card yc-card-purple">
+                                    <div className="yc-card-top">
+                                        <div>
+                                            <div className="yc-kicker">Total trips</div>
+                                            <div className="yc-hint">{yearCompare.thisLabel} · {yearCompare.span}</div>
+                                        </div>
+                                        <span className="yc-badge" data-tone="purple">{yearCompare.chartRows.length} months</span>
+                                    </div>
+                                    <div className="yc-big">{formatCount(ytd.totalThis)}<span>trips</span></div>
+                                    <div className="yc-card-foot">
+                                        <div className="yc-bars">
+                                            <div className="yc-bar-row">
+                                                <span>This year</span>
+                                                <div className="yc-track"><div className="yc-fill now" style={{ width: `${(ytd.totalThis / barMax) * 100}%` }} /></div>
+                                                <strong>{formatCount(ytd.totalThis)}</strong>
+                                            </div>
+                                            <div className="yc-bar-row">
+                                                <span>Last year</span>
+                                                <div className="yc-track"><div className="yc-fill then" style={{ width: `${(ytd.totalLast / barMax) * 100}%` }} /></div>
+                                                <strong>{formatCount(ytd.totalLast)}</strong>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className={`yc-card yc-card-${paceCard}`}>
+                                    <div className="yc-card-top">
+                                        <div>
+                                            <div className="yc-kicker">{paceTitle}</div>
+                                            <div className="yc-hint">{gapCopy}</div>
+                                        </div>
+                                        <span className="yc-badge" data-tone={pace}>{changeText(ytd.totalThis, ytd.totalLast, ytd.totalDelta)}</span>
+                                    </div>
+                                    <div className="yc-big">{ytd.totalLast === 0 && ytd.totalThis > 0 ? 'New' : pace === 'flat' ? 'Same' : `${ytd.totalDelta >= 0 ? '+' : ''}${ytd.totalDelta.toFixed(1)}%`}</div>
+                                    <div className="yc-card-foot">
+                                        <div className="yc-stat-pills">
+                                            <div className="yc-stat" data-tone={ytd.srccThis >= ytd.srccLast ? 'green' : 'rose'}>
+                                                <span>SRCC</span>
+                                                <b>{changeText(ytd.srccThis, ytd.srccLast, ytd.srccDelta)}</b>
+                                            </div>
+                                            <div className="yc-stat" data-tone={ytd.outThis >= ytd.outLast ? 'green' : 'amber'}>
+                                                <span>Outsourced</span>
+                                                <b>{changeText(ytd.outThis, ytd.outLast, ytd.outDelta)}</b>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="yc-card yc-card-mint">
+                                    <div className="yc-card-top">
+                                        <div>
+                                            <div className="yc-kicker">Fleet mix</div>
+                                            <div className="yc-hint">SRCC share of all trips</div>
+                                        </div>
+                                        <span className="yc-badge" data-tone="mint">{formatCount(ytd.totalThis)} trips</span>
+                                    </div>
+                                    <div className="yc-big">{ytd.ownShareThis}%<span>SRCC</span></div>
+                                    <div className="yc-card-foot">
+                                        <div className="yc-mix" aria-hidden="true">
+                                            <div className="own" style={{ width: `${ytd.ownShareThis}%` }} />
+                                            <div className="out" style={{ width: `${100 - ytd.ownShareThis}%` }} />
+                                        </div>
+                                        <div className="yc-mini-pair">
+                                            <div className="yc-mini own">
+                                                <div className="lbl">SRCC</div>
+                                                <div className="num">{formatCount(ytd.srccThis)}<em>{ytd.ownShareThis}%</em></div>
+                                            </div>
+                                            <div className="yc-mini out">
+                                                <div className="lbl">Outsourced</div>
+                                                <div className="num">{formatCount(ytd.outThis)}<em>{100 - ytd.ownShareThis}%</em></div>
+                                            </div>
+                                        </div>
+                                        <div className="yc-foot-note">Last year SRCC was {ytd.ownShareLast}% of trips</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="yc-panel">
+                                <div className="yc-panel-head">
+                                    <div>
+                                        <h4>Month by month</h4>
+                                        <p>Purple is SRCC, teal is outsourced. The amber line is last year’s total.</p>
+                                    </div>
+                                    <div className="yc-legend">
+                                        <span><i className="yc-dot own" /> SRCC</span>
+                                        <span><i className="yc-dot out" /> Outsourced</span>
+                                        <span><i className="yc-dot then" /> Last year</span>
+                                    </div>
+                                </div>
+                                {yearCompare.chartRows.length > 0 && (
+                                    <div className="yc-insights">
+                                        <span className="yc-insight" data-tone="green">{yearCompare.aheadCount} months ahead</span>
+                                        <span className="yc-insight" data-tone="rose">{yearCompare.behindCount} months behind</span>
+                                        {yearCompare.bestMonth && (
+                                            <span className="yc-insight" data-tone="purple">Best month {yearCompare.bestMonth.month}</span>
+                                        )}
+                                        {yearCompare.softMonth && (
+                                            <span className="yc-insight" data-tone="amber">Needs attention {yearCompare.softMonth.month}</span>
+                                        )}
+                                    </div>
+                                )}
+                                {yearCompare.chartRows.length === 0 ? (
+                                    <div className="yc-note">This financial year has not started yet.</div>
+                                ) : (
+                                    <div style={{ width: '100%', height: 280 }}>
+                                        <ResponsiveContainer>
+                                            <ComposedChart data={yearCompare.chartRows} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
+                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef2ff" />
+                                                <XAxis dataKey="month" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                                                <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
+                                                <Tooltip content={<CompareTooltip />} cursor={{ fill: 'rgba(124,107,245,0.08)' }} />
+                                                <Bar dataKey="srccThis" name="SRCC" stackId="this" fill="#7c6bf5" maxBarSize={36} />
+                                                <Bar dataKey="outThis" name="Outsourced" stackId="this" fill="#14b8a6" radius={[8, 8, 0, 0]} maxBarSize={36} />
+                                                <Line dataKey="totalLast" name="Last year" type="monotone" stroke="#f59e0b" strokeWidth={2.5} dot={{ r: 4, fill: '#f59e0b', stroke: '#fff', strokeWidth: 2 }} activeDot={{ r: 6 }} />
+                                            </ComposedChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="yc-panel">
+                                <div className="yc-panel-head">
+                                    <div>
+                                        <h4>How each month did</h4>
+                                        <p>Green edge is ahead of last year. Rose is behind. Later months stay quiet until they start.</p>
+                                    </div>
+                                    <span className="yc-badge" data-tone="sky">{yearCompare.rows.length} months</span>
+                                </div>
+                                <div className="yc-months">
+                                    {yearCompare.rows.map((row, index) => {
+                                        const tone = monthTone(row);
+                                        const share = row.future ? row.ownShareLast : row.ownShareThis;
+                                        const shownTotal = row.future ? row.totalLast : row.totalThis;
+                                        return (
+                                            <div key={row.month} className="yc-month" data-tone={tone} data-wash={COMPARE_WASH[index % COMPARE_WASH.length]}>
+                                                <div className="yc-month-top">
+                                                    <span className="yc-month-name">{row.month}</span>
+                                                    {row.future ? (
+                                                        <span className="yc-badge" data-tone="slate">Not started</span>
+                                                    ) : (
+                                                        <span className="yc-badge" data-tone={tone === 'up' ? 'up' : tone === 'down' ? 'down' : 'flat'}>
+                                                            {changeText(row.totalThis, row.totalLast, row.totalDelta)}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="yc-month-now" style={row.future ? { color: '#94a3b8' } : undefined}>
+                                                    {row.future ? '—' : formatCount(row.totalThis)}
+                                                </div>
+                                                <div className="yc-month-then">
+                                                    Last year {formatCount(row.totalLast)}
+                                                </div>
+                                                <div className="yc-mix" aria-hidden="true">
+                                                    <div className="own" style={{ width: `${shownTotal > 0 ? share : 0}%` }} />
+                                                    <div className="out" style={{ width: `${shownTotal > 0 ? 100 - share : 0}%` }} />
+                                                </div>
+                                                <div className="yc-month-split">
+                                                    <span className="own">SRCC {formatCount(row.future ? row.srccLast : row.srccThis)}</span>
+                                                    <span className="out">Out {formatCount(row.future ? row.outLast : row.outThis)}</span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </>
+                    )}
+                </div>
+                );
+            })()}
 
         </div>
     );

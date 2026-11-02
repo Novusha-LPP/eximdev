@@ -177,6 +177,15 @@ const NucleusHome = () => {
 
     const currentYear = new Date().getFullYear();
     const years = Array.from({ length: 7 }, (_, i) => currentYear - 5 + i);
+    const currentFyStart = new Date().getMonth() >= 3 ? currentYear : currentYear - 1;
+    const fleetFyYears = Array.from({ length: currentFyStart - 2023 + 1 }, (_, i) => 2023 + i);
+    const fleetYearLabel = (year) => `${year}-${String(year + 1).slice(-2)}`;
+
+    useEffect(() => {
+        if (activeReport !== 'fleet_utilization') return;
+        const year = parseInt(selectedYear, 10);
+        if (Number.isFinite(year) && year > currentFyStart) setSelectedYear(currentFyStart);
+    }, [activeReport, selectedYear, currentFyStart]);
     const months = [
         "January", "February", "March", "April", "May", "June",
         "July", "August", "September", "October", "November", "December"
@@ -651,7 +660,9 @@ const NucleusHome = () => {
                                             value={selectedYear}
                                             onChange={(e) => setSelectedYear(e.target.value)}
                                         >
-                                            {years.map(y => <option key={y} value={y}>{y}</option>)}
+                                            {(activeReport === 'fleet_utilization' ? fleetFyYears : years).map(y => (
+                                                <option key={y} value={y}>{activeReport === 'fleet_utilization' ? fleetYearLabel(y) : y}</option>
+                                            ))}
                                         </select>
                                     </div>
                                 )}
@@ -699,7 +710,9 @@ const NucleusHome = () => {
                                             value={selectedYear}
                                             onChange={(e) => setSelectedYear(e.target.value)}
                                         >
-                                            {years.map(y => <option key={y} value={y}>{y}</option>)}
+                                            {(activeReport === 'fleet_utilization' ? fleetFyYears : years).map(y => (
+                                                <option key={y} value={y}>{activeReport === 'fleet_utilization' ? fleetYearLabel(y) : y}</option>
+                                            ))}
                                         </select>
                                     </div>
                                 )}

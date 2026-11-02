@@ -2,6 +2,7 @@ import React, {
   useContext,
   useState,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useCallback,
   useRef,
@@ -51,11 +52,11 @@ import useDynamicICDs from "../../customHooks/useDynamicICDs";
 // Full/Shrink labels: shown on phones/tablets (own row) and very wide screens; icon-only in between (tooltips explain)
 const toggleLabelSx = { display: { xs: "inline", md: "none" }, "@media (min-width:1800px)": { display: "inline" } };
 
-// Extra "Select Status" choice: jobs whose DO Planning date is today, earliest planned time first
+// Extra "Select Status" choice: jobs whose DO Planning date is in the current month, earliest planned date first
 const DO_PLANNING_FILTER = "DO Planning";
 const statusFilterOptions = (() => {
   const at = detailedStatusOptions.findIndex((o) => o.value === "Do completed and Delivery pending");
-  const option = { id: "do-planning", name: "DO Planning (today)", value: DO_PLANNING_FILTER };
+  const option = { id: "do-planning", name: "DO Planning", value: DO_PLANNING_FILTER };
   return at === -1
     ? [...detailedStatusOptions, option]
     : [...detailedStatusOptions.slice(0, at + 1), option, ...detailedStatusOptions.slice(at + 1)];
@@ -283,7 +284,24 @@ function JobList(props) {
   }, []);
 
   // Query Management States
-  const [clientQueriesStatus, setClientQueriesStatus] = useState({});
+  const routeLocation = useLocation();
+  // Coming back from a job (same tab): remember where the list was (page, scroll, expanded rows)
+  const returnKey = `exim_joblist_return_${props.status || "all"}`;
+  const returnSnapshotRef = useRef(undefined);
+  if (returnSnapshotRef.current === undefined) {
+    let snap = null;
+    try {
+      if (routeLocation.state && routeLocation.state.fromJobDetails) {
+        const parsed = JSON.parse(sessionStorage.getItem(returnKey) || "null");
+        if (parsed && Date.now() - parsed.savedAt < 12 * 60 * 60 * 1000) snap = parsed;
+      }
+    } catch (e) {
+      snap = null;
+    }
+    returnSnapshotRef.current = snap;
+  }
+
+  const [clientQueriesStatus, setClientQueriesStatus] = useState(returnSnapshotRef.current?.clientQueriesStatus || {});
   const [queryChatOpen, setQueryChatOpen] = useState(false);
   const [queryChatJob, setQueryChatJob] = useState(null);
   const [queryChatData, setQueryChatData] = useState([]);
@@ -318,10 +336,11 @@ function JobList(props) {
         isClient: false,
       });
       if (res.data?.success) {
-        setClientQueriesStatus((prev) => ({
-          ...prev,
-          ...res.data.data,
-        }));
+        // Keep the same object when nothing changed, so the rows are not re-sorted and re-drawn
+        setClientQueriesStatus((prev) => {
+          const next = { ...prev, ...res.data.data };
+          return JSON.stringify(next) === JSON.stringify(prev) ? prev : next;
+        });
       }
     } catch (err) {
       console.error("Failed to fetch client queries status:", err);
@@ -444,7 +463,15 @@ function JobList(props) {
     showUnresolvedOnly,
     selectedBranch,
     selectedMode,
-    selectedCategory
+    selectedCategory,
+    returnSnapshotRef.current?.page || 1,
+    returnSnapshotRef.current?.rows
+      ? {
+          data: returnSnapshotRef.current.rows,
+          total: returnSnapshotRef.current.total,
+          totalPages: returnSnapshotRef.current.totalPages,
+        }
+      : null
   );
 
   // Fetch query status when rows change
@@ -1354,7 +1381,7 @@ function JobList(props) {
     ]
   );
 
-  const [expandedRowIds, setExpandedRowIds] = useState({});
+  const [expandedRowIds, setExpandedRowIds] = useState(returnSnapshotRef.current?.expandedRowIds || {});
 
   const toggleRowExpanded = useCallback((rowId) => {
     if (!rowId) return;
@@ -1364,35 +1391,67 @@ function JobList(props) {
     }));
   }, []);
 
+  // State handed to the job page so it can bring this list back (filters, tab) after Submit / Back
+  const buildJobNavState = () => ({
+    fromJobList: true,
+    currentTab: (() => {
+      switch (props.status) {
+        case "Pending":
+          return 0;
+        case "Completed":
+          return 1;
+        case "Cancelled":
+          return 2;
+        case "Billing_Confirmation":
+          return 3;
+        default:
+          return 0;
+      }
+    })(),
+    searchQuery,
+    detailedStatus,
+    selectedICD,
+    selectedImporter,
+    selectedBeType, // persist
+    selectedBranch,
+    selectedMode,
+  });
+
+  // Scrolling happens in the table box and in the page around it
+  const getListScrollTargets = () => {
+    const container = table.refs.tableContainerRef.current;
+    let scrollParent = container ? container.parentElement : null;
+    while (scrollParent && !/(auto|scroll)/.test(getComputedStyle(scrollParent).overflowY)) {
+      scrollParent = scrollParent.parentElement;
+    }
+    return { container, page: scrollParent || document.documentElement };
+  };
+
+  // Always the latest closure, because the columns are memoised and keep the first one
+  const openJobRef = useRef(null);
+  openJobRef.current = (path) => {
+    try {
+      const { container, page } = getListScrollTargets();
+      const snapshot = {
+        page: currentPage,
+        expandedRowIds,
+        tableScroll: container ? container.scrollTop : 0,
+        pageScroll: page ? page.scrollTop : 0,
+        savedAt: Date.now(),
+      };
+      // Rows are kept too, so the list is back on screen at once (they are refreshed quietly)
+      const withRows = JSON.stringify({ ...snapshot, rows, total, totalPages, clientQueriesStatus });
+      sessionStorage.setItem(returnKey, withRows.length < 2500000 ? withRows : JSON.stringify(snapshot));
+    } catch (e) {
+      // storage unavailable: the list just comes back at the top
+    }
+    navigate(path, { state: buildJobNavState() });
+  };
+
   const columns = useJobColumns(
     (jobId, updatedData) => handleRowDataUpdate(jobId, updatedData),
     (job_no, year) =>
-      navigate(`/import-dsr/job/${job_no}/${year}`, {
-        state: {
-          fromJobList: true,
-          currentTab: (() => {
-            switch (props.status) {
-              case "Pending":
-                return 0;
-              case "Completed":
-                return 1;
-              case "Cancelled":
-                return 2;
-              case "Billing_Confirmation":
-                return 3;
-              default:
-                return 0;
-            }
-          })(),
-          searchQuery,
-          detailedStatus,
-          selectedICD,
-          selectedImporter,
-          selectedBeType, // persist
-          selectedBranch,
-          selectedMode
-        },
-      }),
+      navigate(`/import-dsr/job/${job_no}/${year}`, { state: buildJobNavState() }),
     setRows, // <-- pass here
     invalidateCache,
     selectedYearState,
@@ -1403,7 +1462,8 @@ function JobList(props) {
     handleOpenQueryChat,
     viewMode,
     expandedRowIds,
-    toggleRowExpanded
+    toggleRowExpanded,
+    (path) => openJobRef.current(path)
   );
 
   // On phones the pinned 250px Job No column would leave little room to scroll the rest of the row
@@ -1515,8 +1575,32 @@ function JobList(props) {
     };
   }, [table]);
 
+  // Back from a job: put the scroll position back once the rows are on screen
+  const restoredScrollRef = useRef(false);
+  // Hidden until the scroll position is back, so the list appears once, in the right place
+  const [listReady, setListReady] = useState(!returnSnapshotRef.current);
+  useLayoutEffect(() => {
+    const snap = returnSnapshotRef.current;
+    if (!snap || restoredScrollRef.current || !rows || rows.length === 0 || tableMaxHeight === null) return;
+    restoredScrollRef.current = true;
+    const { container, page } = getListScrollTargets();
+    if (container) container.scrollTop = snap.tableScroll || 0;
+    if (page) page.scrollTop = snap.pageScroll || 0;
+    setListReady(true);
+    // eslint-disable-next-line
+  }, [rows, tableMaxHeight]);
+  // Never leave the list hidden if there was nothing to restore
+  useEffect(() => {
+    if (listReady) return undefined;
+    const t = setTimeout(() => setListReady(true), 2500);
+    return () => clearTimeout(t);
+  }, [listReady]);
+
   return (
-    <div className="table-container">
+    <div
+      className="table-container"
+      style={listReady ? { opacity: 1, transition: "opacity 150ms ease-out" } : { opacity: 0, pointerEvents: "none" }}
+    >
       <MaterialReactTable table={table} />
 
       {/* Render Query Modals */}

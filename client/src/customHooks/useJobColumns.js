@@ -14,6 +14,7 @@ import axios from "axios";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import InvoiceDisplay from "../components/import-do/InvoiceDisplay";
 import { isAirMode } from "../utils/modeLogic";
+import { prefetchJob } from "../utils/jobPrefetch";
 import ContainerCellContent from "../components/ContainerCellContent";
 
 // Custom hook to manage job columns configuration
@@ -30,12 +31,24 @@ function useJobColumns(
   handleOpenQueryChat = () => {},
   viewMode = "full",
   expandedRowIds = {},
-  toggleRowExpanded = () => {}
+  toggleRowExpanded = () => {},
+  onOpenJob = null
 ) {
   const navigate = useNavigate();
   const location = useLocation();
   const { searchQuery, detailedStatus, selectedICD, selectedImporter } =
     useSearchQuery();
+
+  // Plain click opens the job in this tab; Ctrl/Cmd/Shift/middle click still opens a new tab
+  // Same URL the job page uses, so its request can be answered by this one
+  const prefetchJobFor = (branchCode, tradeType, mode, jobNo, yr) =>
+    prefetchJob(`${process.env.REACT_APP_API_STRING}/get-job/${branchCode}/${tradeType}/${mode}/${yr}/${jobNo}`);
+
+  const openJobSameTab = (e, path) => {
+    if (!onOpenJob || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    onOpenJob(path);
+  };
 
   const formatDate = useCallback((dateStr) => {
     if (dateStr) {
@@ -226,9 +239,13 @@ function useJobColumns(
                 </IconButton>
                 <a
                   href={`/import-dsr/job/${branch_code}/${trade_type}/${row.mode}/${job_no}/${year}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => e.stopPropagation()}
+                  onMouseEnter={() => prefetchJobFor(branch_code, trade_type, row.mode, job_no, year)}
+                  onFocus={() => prefetchJobFor(branch_code, trade_type, row.mode, job_no, year)}
+                  onTouchStart={() => prefetchJobFor(branch_code, trade_type, row.mode, job_no, year)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openJobSameTab(e, `/import-dsr/job/${branch_code}/${trade_type}/${row.mode}/${job_no}/${year}`);
+                  }}
                   style={{
                     cursor: "pointer",
                     color: textColor,
@@ -293,8 +310,10 @@ function useJobColumns(
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
                 <a
                   href={`/import-dsr/job/${branch_code}/${trade_type}/${row.mode}/${job_no}/${year}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  onMouseEnter={() => prefetchJobFor(branch_code, trade_type, row.mode, job_no, year)}
+                  onFocus={() => prefetchJobFor(branch_code, trade_type, row.mode, job_no, year)}
+                  onTouchStart={() => prefetchJobFor(branch_code, trade_type, row.mode, job_no, year)}
+                  onClick={(e) => openJobSameTab(e, `/import-dsr/job/${branch_code}/${trade_type}/${row.mode}/${job_no}/${year}`)}
                   style={{
                     cursor: "pointer",
                     color: textColor,

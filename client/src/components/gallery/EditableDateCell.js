@@ -737,47 +737,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate, compact = false, showDoP
             {/* Delivery then EmptyOff */}
             <>
               {lineBreak}
-              {containers.map((c, i) =>
-                renderContainerEditor(
-                  "Delivery",
-                  c.delivery_date,
-                  "delivery_date",
-                  i
-                )
-              )}
-            </>
-
-            {lineBreak}
-
-
-            {!isLCL &&
-              !isExBond &&
-              !isAirMode(mode) &&
-              containers.map((c, i) =>
-                renderContainerEditor(
-                  "EmptyOff",
-                  c.emptyContainerOffLoadDate,
-                  "emptyContainerOffLoadDate",
-                  i
-                )
-              )}
-          </>
-        ) : (
-          <>
-            {!isLCL &&
-              !isExBond &&
-              !isAirMode(mode) &&
-              containers.map((c, i) =>
-                renderContainerEditor(
-                  "Destuffing Date / EmptyOff",
-                  c.emptyContainerOffLoadDate,
-                  "emptyContainerOffLoadDate",
-                  i
-                )
-              )}
-            {!InBondflag && (
-              <>
-                {lineBreak}
+              <div>
                 {containers.map((c, i) =>
                   renderContainerEditor(
                     "Delivery",
@@ -786,6 +746,52 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate, compact = false, showDoP
                     i
                   )
                 )}
+              </div>
+            </>
+
+            {lineBreak}
+
+
+            {!isLCL && !isExBond && !isAirMode(mode) && (
+              <div>
+                {containers.map((c, i) =>
+                  renderContainerEditor(
+                    "EmptyOff",
+                    c.emptyContainerOffLoadDate,
+                    "emptyContainerOffLoadDate",
+                    i
+                  )
+                )}
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            {!isLCL && !isExBond && !isAirMode(mode) && (
+              <div>
+                {containers.map((c, i) =>
+                  renderContainerEditor(
+                    "Destuffing Date / EmptyOff",
+                    c.emptyContainerOffLoadDate,
+                    "emptyContainerOffLoadDate",
+                    i
+                  )
+                )}
+              </div>
+            )}
+            {!InBondflag && (
+              <>
+                {lineBreak}
+                <div>
+                  {containers.map((c, i) =>
+                    renderContainerEditor(
+                      "Delivery",
+                      c.delivery_date,
+                      "delivery_date",
+                      i
+                    )
+                  )}
+                </div>
               </>
             )}
           </>

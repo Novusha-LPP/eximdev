@@ -14,12 +14,14 @@ function useFetchJobList(
   unresolvedOnly = false,
   selectedBranch = "all",
   selectedMode = "all",
-  category = "all"
+  category = "all",
+  initialPage = 1,
+  seed = null // rows shown at once when the list comes back from a job, refreshed quietly
 ) {
-  const [rows, setRows] = useState([]);
-  const [total, setTotal] = useState(0);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+  const [rows, setRows] = useState(seed?.data || []);
+  const [total, setTotal] = useState(seed?.total || 0);
+  const [currentPage, setCurrentPage] = useState(initialPage);
+  const [totalPages, setTotalPages] = useState(seed?.totalPages || 1);
   const [loading, setLoading] = useState(false);
   const [userImporters, setUserImporters] = useState([]);
   const [unresolvedCount, setUnresolvedCount] = useState(0);
@@ -75,12 +77,16 @@ function useFetchJobList(
   };
 
   // Accept unresolvedOnly and bypassCache as arguments to fetchJobs
+  const quietFirstFetchRef = useRef(Boolean(seed));
   const fetchJobs = async (page, unresolved = unresolvedOnly, bypassCache = false) => {
-    setLoading(true);
+    // First load after coming back from a job: the seeded rows stay on screen while fresh ones load
+    const quiet = quietFirstFetchRef.current;
+    quietFirstFetchRef.current = false;
+    if (!quiet) setLoading(true);
     const cacheKey = makeCacheKey(page);
 
     // Only use cache if not bypassing
-    if (!bypassCache) {
+    if (!bypassCache && !quiet) {
       const cached = getFromCache(cacheKey);
       if (cached) {
         // Use cached results immediately
@@ -177,7 +183,8 @@ function useFetchJobList(
         userImporters: responseUserImporters,
         unresolvedCount: backendUnresolvedCount,
       } = response.data;
-      setRows(data);
+      // Quiet refresh with the same rows: keep the current ones so nothing is redrawn
+      setRows((prev) => (quiet && JSON.stringify(prev) === JSON.stringify(data) ? prev : data));
       setTotal(total);
       setTotalPages(totalPages);
       setCurrentPage(respPage || page);

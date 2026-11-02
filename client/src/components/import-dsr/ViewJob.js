@@ -444,6 +444,21 @@ function JobDetails() {
     });
   };
 
+  // Submit finished: a job opened from the list in this tab goes back to the same place in the list.
+  // Other entry points (new tab, analytics) keep the old behaviour (the tab closes).
+  const handleBackClickRef = React.useRef(handleBackClick);
+  handleBackClickRef.current = handleBackClick;
+  React.useEffect(() => {
+    const onJobSaved = (event) => {
+      if (location.state && location.state.fromJobList) {
+        event.preventDefault();
+        handleBackClickRef.current();
+      }
+    };
+    window.addEventListener("exim:job-saved", onJobSaved);
+    return () => window.removeEventListener("exim:job-saved", onJobSaved);
+  }, [location.state]);
+
   // Import Terms handlers
   const handleImportTermsChange = (event) => {
     const value = event.target.value;

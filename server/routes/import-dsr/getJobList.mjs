@@ -399,14 +399,14 @@ router.get(
         do_completed_and_delivery_pending: "Do completed and Delivery pending",
       };
 
-      // "DO Planning" is not a job status: it lists jobs planned today (IST, same rule as the DO module),
-      // earliest planned time first
+      // "DO Planning" is not a job status: it lists jobs planned in the current month (IST),
+      // earliest planned date first
       const isDoPlanningFilter = detailedStatus === "DO Planning";
       if (isDoPlanningFilter) {
-        const todayIST = new Intl.DateTimeFormat("en-CA", {
+        const monthIST = new Intl.DateTimeFormat("en-CA", {
           timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit",
-        }).format(new Date()); // YYYY-MM-DD
-        query.do_planning_date = { $regex: new RegExp(`^${todayIST}`) };
+        }).format(new Date()).slice(0, 7); // YYYY-MM
+        query.do_planning_date = { $regex: new RegExp(`^${monthIST}`) };
       }
 
       const requestedDetailedStatus =

@@ -37,6 +37,13 @@ const getDynamicBaseURL = () => {
   return envVal;
 };
 
+// Public read-only lookups need no login. Without the Authorization header these cross-origin GETs are
+// "simple" requests, so the browser skips the extra OPTIONS preflight (one round trip instead of two).
+const PUBLIC_GET_PATHS =
+  /\/(get-job\/|get-docs|get-cth-docs|get-units|get-currencies|get-transporters|get-authorizations-by-iec|get-rodteps-by-iec|currency-rates\/by-date)/;
+const isPublicGet = (config) =>
+  (config.method || "get").toLowerCase() === "get" && PUBLIC_GET_PATHS.test(config.url || "");
+
 axios.interceptors.request.use(
   (config) => {
     if (config.url && config.url.startsWith(process.env.REACT_APP_API_STRING)) {
@@ -44,7 +51,7 @@ axios.interceptors.request.use(
       config.url = config.url.replace(process.env.REACT_APP_API_STRING, dynamicBase);
     }
     const token = localStorage.getItem("token");
-    if (token && !config.headers.Authorization && !config.headers.authorization) {
+    if (token && !isPublicGet(config) && !config.headers.Authorization && !config.headers.authorization) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;

@@ -7,6 +7,7 @@ import AWS from "aws-sdk";
 import toast from "react-hot-toast";
 import { mergeThreeWay, mergeListByKey, overlayByName, conflictFieldNames } from "../utils/jobMerge";
 import { subscribeToJobChanges, isJobLiveSyncEnabled } from "../utils/jobRealtime";
+import { takePrefetchedJob } from "../utils/jobPrefetch";
 
 let cachedGlobalDocs = null;
 
@@ -330,7 +331,14 @@ function useFetchJobDetails(
         url = `${process.env.REACT_APP_API_STRING}/get-job/${params.mode}/${yearValue}/${params.job_no}`;
       }
 
-      const response = await axios.get(url);
+      // The list starts this request when the pointer reaches the job link
+      const prefetched = takePrefetchedJob(url);
+      let response;
+      try {
+        response = prefetched ? await prefetched : await axios.get(url);
+      } catch (error) {
+        response = await axios.get(url);
+      }
       setData(response.data);
       setSelectedDocuments(response.data.documents);
     }
@@ -931,9 +939,11 @@ function useFetchJobDetails(
         );
         localStorage.setItem("tab_value", 1);
         setTabValue(1);
-        // Close the tab after successful submit
+        // After a successful submit: the page may take over (job opened from the list in this tab
+        // returns to the list); otherwise close the tab as before
         setTimeout(() => {
-          window.close();
+          const handled = !window.dispatchEvent(new CustomEvent("exim:job-saved", { cancelable: true }));
+          if (!handled) window.close();
         }, 500);
       } catch (error) {
         console.error("Error updating job:", error);

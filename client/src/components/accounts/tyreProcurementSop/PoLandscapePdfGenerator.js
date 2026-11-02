@@ -240,47 +240,38 @@ function PoLandscapePdfGenerator({
       priceQuoted: Number(targetSupplier.priceQuoted) || full.unitPriceNew || full.priceQuoted || 0,
       reasonForSelection: targetSupplier.reasonForSelection || full.reasonForSelection || "",
       poNumber: targetSupplier.poNumber || globalData?.poNumber || rawPoNumber,
+      isConsolidatedVendor: Boolean(targetSupplier.isConsolidatedVendor),
       ...full,
       ...(typeof targetSupplier === "object" ? targetSupplier : {}),
       supplierName: resolvedSupplierName,
+      isConsolidatedVendor: Boolean(targetSupplier.isConsolidatedVendor),
     }];
   } else if (stage2Selected && stage2Selected.length > 0) {
-    const supplierMap = new Map();
-    stage2Selected.forEach((sel) => {
+    // Top Download button (all awarded suppliers)
+    awardedSuppliers = stage2Selected.map((sel) => {
       const sName = (sel.selectedSupplier || "").trim();
-      const key = sName.toUpperCase();
-      if (!supplierMap.has(key)) {
-        const full =
-          stage2Suppliers.find(
-            (s) =>
-              (sName && s.supplierName && s.supplierName.trim().toUpperCase() === sName.toUpperCase()) ||
-              (sName && s._id && String(s._id) === String(sName)) ||
-              (sName && s.supplierNameInBank && s.supplierNameInBank.trim().toUpperCase() === sName.toUpperCase())
-          ) ||
-          stage2Suppliers.find((s) => s.supplierName && !s.supplierName.toUpperCase().startsWith("SUPPLIER ")) ||
-          stage2Suppliers[0] ||
-          {};
+      const full =
+        stage2Suppliers.find(
+          (s) =>
+            (sName && s.supplierName && s.supplierName.trim().toUpperCase() === sName.toUpperCase()) ||
+            (sName && s._id && String(s._id) === String(sName)) ||
+            (sName && s.supplierNameInBank && s.supplierNameInBank.trim().toUpperCase() === sName.toUpperCase())
+        ) ||
+        stage2Suppliers.find((s) => s.supplierName && !s.supplierName.toUpperCase().startsWith("SUPPLIER ")) ||
+        stage2Suppliers[0] ||
+        {};
 
-        supplierMap.set(key, {
-          supplierName: sName || full.supplierName || full.supplierNameInBank || "-",
-          totalOrderValue: Number(sel.totalOrderValue) || full.totalOrderValue || 0,
-          priceQuoted: Number(sel.priceQuoted) || full.unitPriceNew || full.priceQuoted || 0,
-          reasonForSelection: sel.reasonForSelection || full.reasonForSelection || "",
-          poNumber: sel.poNumber || globalData?.poNumber || rawPoNumber,
-          additionalRemarks: sel.additionalRemarks || sel.remarks || full.remarks || "",
-          ...full,
-          ...sel,
-          supplierName: sName || full.supplierName || full.supplierNameInBank || "-",
-        });
-      } else {
-        const existing = supplierMap.get(key);
-        existing.totalOrderValue = (existing.totalOrderValue || 0) + (Number(sel.totalOrderValue) || 0);
-        if (sel.additionalRemarks || sel.remarks) {
-          existing.additionalRemarks = [existing.additionalRemarks, sel.additionalRemarks || sel.remarks].filter(Boolean).join("; ");
-        }
-      }
+      return {
+        ...full,
+        ...sel,
+        supplierName: sName || full.supplierName || full.supplierNameInBank || "-",
+        totalOrderValue: Number(sel.totalOrderValue) || full.totalOrderValue || 0,
+        priceQuoted: Number(sel.priceQuoted) || full.unitPriceNew || full.priceQuoted || 0,
+        reasonForSelection: sel.reasonForSelection || full.reasonForSelection || "",
+        poNumber: sel.poNumber || globalData?.poNumber || rawPoNumber,
+        isConsolidatedVendor: Boolean(sel.isConsolidatedVendor),
+      };
     });
-    awardedSuppliers = Array.from(supplierMap.values());
   } else if (stage2Suppliers.length > 0) {
     const validSuppliers = stage2Suppliers.filter((s) => s.supplierName && !s.supplierName.toUpperCase().startsWith("SUPPLIER "));
     const chosenList = validSuppliers.length > 0 ? validSuppliers : [stage2Suppliers[0]];
@@ -432,121 +423,313 @@ function PoLandscapePdfGenerator({
   const approvedAtFormatted = fmtPoDateTime(globalData?.stage3?.signOff?.dateOfApproval || globalData?.stage3?.decision?.approvedAt || globalData?.stage3?.updatedAt || poDate);
 
   // Compute Items
-  let totalQtySum = 0;
-  rawItems.forEach((it) => {
-    totalQtySum += Number(it.qty || it.quantityRequested || it.quantity || 0);
-  });
-  const prTotalQuantity = totalQtySum > 0 ? totalQtySum : 1;
-
-  const vendorTotalOrderValue = Number(currentVendor.totalOrderValue) || 0;
-  const vendorUnitPrice = Number(currentVendor.unitPriceNew || currentVendor.priceQuoted || 0);
-
-  const explicitVendorQty = Number(
-    currentVendor.allocatedQty ||
-    currentVendor.orderQty ||
-    currentVendor.qty ||
-    currentVendor.quantity ||
-    0
-  );
-
-  let vendorAllocatedTotalQty =
-    explicitVendorQty ||
-    (vendorTotalOrderValue > 0 && vendorUnitPrice > 0
-      ? Math.round(vendorTotalOrderValue / vendorUnitPrice)
-      : prTotalQuantity) ||
-    1;
-
+  const isConsolidated = Boolean(currentVendor.isConsolidatedVendor);
+  let computedItems = [];
   let calculatedSubTotal = 0;
   let calculatedTotalGst = 0;
+  let vendorAllocatedTotalQty = 0;
 
-  const itemsList = rawItems.length > 0 ? rawItems : [];
+  if (
+    !isConsolidated &&
+    (currentVendor.selectedProduct ||
+      (currentVendor.quoteIndex !== undefined && currentVendor.quoteIndex !== null && currentVendor.quoteIndex >= 0) ||
+      Number(currentVendor.priceQuoted) > 0 ||
+      Number(currentVendor.totalOrderValue) > 0)
+  ) {
+    // ────────────── SINGLE PO GENERATION (Single Item Award) ──────────────
+    // This PO is exclusively for this ONE awarded item!
+    let matchedQuote = null;
+    let prItem = null;
 
-  const computedItems = itemsList.map((item, idx) => {
-    const rawQty = Number(item.qty || item.quantityRequested || item.quantity || 0);
+    if (
+      currentVendor.quoteIndex !== undefined &&
+      currentVendor.quoteIndex !== null &&
+      currentVendor.quoteIndex >= 0 &&
+      stage2Suppliers[currentVendor.quoteIndex]
+    ) {
+      matchedQuote = stage2Suppliers[currentVendor.quoteIndex];
+      prItem = rawItems[currentVendor.quoteIndex];
+    } else {
+      matchedQuote =
+        stage2Suppliers.find(
+          (s) =>
+            (s.supplierName || "").trim().toUpperCase() === vendorName.trim().toUpperCase() &&
+            (s.selectedProduct || s.selectedTyreType || "").trim().toUpperCase() ===
+              (currentVendor.selectedProduct || "").trim().toUpperCase()
+        ) ||
+        stage2Suppliers.find(
+          (s) => (s.supplierName || "").trim().toUpperCase() === vendorName.trim().toUpperCase()
+        );
+      if (matchedQuote) {
+        const mIdx = stage2Suppliers.indexOf(matchedQuote);
+        prItem = rawItems[mIdx];
+      }
+    }
 
-    // Look up specific quote from this vendor for this item
-    const itemProdName = (item.productName || item.tyreType || item.description || "").trim().toUpperCase();
-    const matchedQuote = stage2Suppliers.find(
-      (s, sIdx) =>
-        (s.supplierName || "").trim().toUpperCase() === vendorName.trim().toUpperCase() &&
-        (((s.selectedProduct || s.selectedTyreType || "").trim().toUpperCase() === itemProdName) ||
-         (sIdx === idx && (s.supplierName || "").trim().toUpperCase() === vendorName.trim().toUpperCase()))
+    const itemQty = Number(
+      currentVendor.allocatedQty ||
+        currentVendor.qty ||
+        currentVendor.orderQty ||
+        matchedQuote?.qtyAvailable ||
+        prItem?.qty ||
+        1
     );
 
-    const isCancelled = Boolean(item.isCancelled);
+    let itemRate = Number(
+      currentVendor.priceQuoted ||
+        matchedQuote?.unitPriceNew ||
+        matchedQuote?.unitPriceRemould ||
+        matchedQuote?.priceQuoted ||
+        0
+    );
 
-    const itemQty =
-      matchedQuote && Number(matchedQuote.qtyAvailable) > 0
-        ? Number(matchedQuote.qtyAvailable)
-        : itemsList.length === 1 && vendorAllocatedTotalQty > 0
-        ? vendorAllocatedTotalQty
-        : rawQty > 0
-        ? rawQty
-        : 1;
-
-    let itemRate = 0;
-    if (isCancelled) {
-      itemRate = 0;
-    } else if (matchedQuote) {
-      const nP = Number(matchedQuote.unitPriceNew) || 0;
-      const rP = Number(matchedQuote.unitPriceRemould) || 0;
-      itemRate = nP > 0 ? nP : (rP > 0 ? rP : (Number(matchedQuote.priceQuoted) || 0));
-    } else if (vendorUnitPrice > 0 && itemsList.length === 1) {
-      itemRate = vendorUnitPrice;
-    } else if (item.estUnitCost) {
-      itemRate = Number(item.estUnitCost);
-    } else if (vendorUnitPrice > 0) {
-      itemRate = vendorUnitPrice;
-    } else if (vendorTotalOrderValue > 0 && vendorAllocatedTotalQty > 0) {
-      itemRate = vendorTotalOrderValue / vendorAllocatedTotalQty;
+    if (itemRate === 0 && Number(currentVendor.totalOrderValue) > 0 && itemQty > 0) {
+      itemRate = Number(currentVendor.totalOrderValue) / itemQty;
     }
 
-    const itemBase = isCancelled ? 0 : itemQty * itemRate;
-    const gstRateVal = matchedQuote?.gstRate
-      ? Number(String(matchedQuote.gstRate).replace(/%/g, ''))
-      : (currentVendor.gstRate
-        ? Number(String(currentVendor.gstRate).replace(/%/g, ''))
-        : 0);
-    const itemGst = isCancelled ? 0 : (itemBase * gstRateVal) / 100;
+    const itemBase = itemQty * itemRate;
 
-    if (!isCancelled) {
-      calculatedSubTotal += itemBase;
-      calculatedTotalGst += itemGst;
-    }
+    const gstRateVal =
+      parseFloat(String(currentVendor.gstRate || matchedQuote?.gstRate || 0).replace("%", "")) || 0;
 
-    const productName = item.productName || item.tyreType || item.description || matchedQuote?.selectedProduct || currentVendor.selectedProduct || "Item";
-    const brand = matchedQuote?.brand || matchedQuote?.tyreBrand || item.brandPreference || item.tyreBrand || currentVendor.tyreBrand || "";
-    const spec = matchedQuote?.sizeSpecification || matchedQuote?.specification || item.sizeSpec || item.sizeSpecification || item.specification || currentVendor.sizeSpecification || "";
-    const fullDescription = [productName, brand, spec].filter(Boolean).join(" - ");
+    const itemGst =
+      currentVendor.gstAmount !== undefined &&
+      currentVendor.gstAmount !== null &&
+      currentVendor.gstAmount !== "" &&
+      Number(currentVendor.gstAmount) > 0
+        ? Number(currentVendor.gstAmount)
+        : Math.round((itemBase * gstRateVal) / 100);
 
-    return {
-      srNo: idx + 1,
-      description: isCancelled
-        ? `[CANCELLED] ${fullDescription || "Item"} (Reason: ${item.cancellationReason || "Cancelled"})`
-        : (fullDescription || "Goods Specification as per Purchase Order"),
-      hsnCode: matchedQuote?.hsnCode || currentVendor.hsnCode || item.hsnCode || item.hsn || globalData?.stage2?.hsnCode || "-",
-      unit: item.unit || (itemQty ? `${itemQty} NOS` : "NOS"),
-      itemQty,
-      itemRate,
-      discPercent: isCancelled
-        ? "CANCELLED"
-        : ((matchedQuote?.discountOffered ?? currentVendor.discountOffered) ? `${matchedQuote?.discountOffered || currentVendor.discountOffered}%` : "-"),
-      itemTotal: itemBase,
-      isCancelled,
-    };
-  });
+    calculatedSubTotal = itemBase;
+    calculatedTotalGst = itemGst;
+    vendorAllocatedTotalQty = itemQty;
+
+    const prodName =
+      currentVendor.selectedProduct ||
+      matchedQuote?.selectedProduct ||
+      matchedQuote?.selectedTyreType ||
+      prItem?.productName ||
+      prItem?.tyreType ||
+      prItem?.description ||
+      "Item";
+
+    const brandName =
+      currentVendor.brand ||
+      currentVendor.tyreBrand ||
+      matchedQuote?.brand ||
+      matchedQuote?.tyreBrand ||
+      prItem?.brandPreference ||
+      prItem?.tyreBrand ||
+      "";
+
+    const specName =
+      currentVendor.sizeSpecification ||
+      currentVendor.specification ||
+      matchedQuote?.sizeSpecification ||
+      matchedQuote?.specification ||
+      prItem?.sizeSpec ||
+      prItem?.sizeSpecification ||
+      "";
+
+    const fullDescription = [prodName, brandName, specName].filter(Boolean).join(" - ");
+
+    const discStr =
+      matchedQuote?.discountOffered !== undefined && matchedQuote?.discountOffered !== null && matchedQuote?.discountOffered !== ""
+        ? `${matchedQuote.discountOffered}%`
+        : currentVendor.discountOffered
+        ? `${currentVendor.discountOffered}%`
+        : "-";
+
+    computedItems = [
+      {
+        srNo: 1,
+        description: fullDescription || "Goods Specification as per Purchase Order",
+        hsnCode:
+          currentVendor.hsnCode ||
+          matchedQuote?.hsnCode ||
+          prItem?.hsnCode ||
+          globalData?.stage2?.hsnCode ||
+          "-",
+        unit: prItem?.unit || `${itemQty} NOS`,
+        itemQty,
+        itemRate,
+        discPercent: discStr,
+        itemTotal: itemBase,
+        isCancelled: false,
+      },
+    ];
+  } else if (isConsolidated) {
+    // ────────────── COMBINE PO GENERATION (All Items for Vendor) ──────────────
+    const vendorQuotes = stage2Suppliers
+      .map((s, idx) => ({ ...s, quoteIndex: idx }))
+      .filter((s) => (s.supplierName || "").trim().toUpperCase() === vendorName.trim().toUpperCase());
+
+    const quotesToRender =
+      vendorQuotes.length > 0 ? vendorQuotes : stage2Suppliers.length > 0 ? [stage2Suppliers[0]] : [];
+
+    let runningSubTotal = 0;
+    let runningGst = 0;
+    let runningQty = 0;
+
+    computedItems = quotesToRender.map((q, qIdx) => {
+      const prItem = rawItems[q.quoteIndex] || {};
+      const qQty = Number(q.qtyAvailable || prItem.qty || 1);
+      const qPrice = Number(q.unitPriceNew || q.unitPriceRemould || q.priceQuoted || 0);
+      const qBase = qQty * qPrice;
+      const gstRateVal =
+        parseFloat(String(q.gstRate || currentVendor.gstRate || 0).replace("%", "")) || 0;
+      const qGst =
+        q.gstAmount !== undefined && q.gstAmount !== null && q.gstAmount !== ""
+          ? Number(q.gstAmount)
+          : Math.round((qBase * gstRateVal) / 100);
+
+      runningSubTotal += qBase;
+      runningGst += qGst;
+      runningQty += qQty;
+
+      const prodName =
+        q.selectedProduct ||
+        q.selectedTyreType ||
+        q.description ||
+        prItem.productName ||
+        prItem.tyreType ||
+        `Item ${qIdx + 1}`;
+      const brandName = q.brand || q.tyreBrand || prItem.brandPreference || prItem.tyreBrand || "";
+      const specName =
+        q.sizeSpecification || q.specification || prItem.sizeSpec || prItem.sizeSpecification || "";
+      const fullDescription = [prodName, brandName, specName].filter(Boolean).join(" - ");
+
+      return {
+        srNo: qIdx + 1,
+        description: fullDescription || "Goods Specification as per Purchase Order",
+        hsnCode: q.hsnCode || prItem.hsnCode || currentVendor.hsnCode || "-",
+        unit: prItem.unit || `${qQty} NOS`,
+        itemQty: qQty,
+        itemRate: qPrice,
+        discPercent: q.discountOffered ? `${q.discountOffered}%` : "-",
+        itemTotal: qBase,
+        isCancelled: false,
+      };
+    });
+
+    calculatedSubTotal = runningSubTotal;
+    calculatedTotalGst = runningGst;
+    vendorAllocatedTotalQty = runningQty;
+  } else {
+    // Fallback: PR items list
+    let totalQtySum = 0;
+    rawItems.forEach((it) => {
+      totalQtySum += Number(it.qty || it.quantityRequested || it.quantity || 0);
+    });
+    const prTotalQuantity = totalQtySum > 0 ? totalQtySum : 1;
+    const vendorTotalOrderValue = Number(currentVendor.totalOrderValue) || 0;
+    const vendorUnitPrice = Number(currentVendor.unitPriceNew || currentVendor.priceQuoted || 0);
+    const explicitVendorQty = Number(
+      currentVendor.allocatedQty || currentVendor.orderQty || currentVendor.qty || currentVendor.quantity || 0
+    );
+    vendorAllocatedTotalQty =
+      explicitVendorQty ||
+      (vendorTotalOrderValue > 0 && vendorUnitPrice > 0
+        ? Math.round(vendorTotalOrderValue / vendorUnitPrice)
+        : prTotalQuantity) ||
+      1;
+
+    const itemsList = rawItems.length > 0 ? rawItems : [];
+    computedItems = itemsList.map((item, idx) => {
+      const rawQty = Number(item.qty || item.quantityRequested || item.quantity || 0);
+      const itemProdName = (item.productName || item.tyreType || item.description || "").trim().toUpperCase();
+      const matchedQuote = stage2Suppliers.find(
+        (s, sIdx) =>
+          (s.supplierName || "").trim().toUpperCase() === vendorName.trim().toUpperCase() &&
+          (((s.selectedProduct || s.selectedTyreType || "").trim().toUpperCase() === itemProdName) ||
+            (sIdx === idx && (s.supplierName || "").trim().toUpperCase() === vendorName.trim().toUpperCase()))
+      );
+
+      const isCancelled = Boolean(item.isCancelled);
+      const itemQty =
+        matchedQuote && Number(matchedQuote.qtyAvailable) > 0
+          ? Number(matchedQuote.qtyAvailable)
+          : itemsList.length === 1 && vendorAllocatedTotalQty > 0
+          ? vendorAllocatedTotalQty
+          : rawQty > 0
+          ? rawQty
+          : 1;
+
+      let itemRate = 0;
+      if (isCancelled) {
+        itemRate = 0;
+      } else if (matchedQuote) {
+        const nP = Number(matchedQuote.unitPriceNew) || 0;
+        const rP = Number(matchedQuote.unitPriceRemould) || 0;
+        itemRate = nP > 0 ? nP : rP > 0 ? rP : Number(matchedQuote.priceQuoted) || 0;
+      } else if (vendorUnitPrice > 0 && itemsList.length === 1) {
+        itemRate = vendorUnitPrice;
+      } else if (item.estUnitCost) {
+        itemRate = Number(item.estUnitCost);
+      } else if (vendorUnitPrice > 0) {
+        itemRate = vendorUnitPrice;
+      }
+
+      const itemBase = isCancelled ? 0 : itemQty * itemRate;
+      const gstRateVal = matchedQuote?.gstRate
+        ? Number(String(matchedQuote.gstRate).replace(/%/g, ""))
+        : currentVendor.gstRate
+        ? Number(String(currentVendor.gstRate).replace(/%/g, ""))
+        : 0;
+      const itemGst = isCancelled ? 0 : (itemBase * gstRateVal) / 100;
+
+      if (!isCancelled) {
+        calculatedSubTotal += itemBase;
+        calculatedTotalGst += itemGst;
+      }
+
+      const productName =
+        item.productName || item.tyreType || item.description || matchedQuote?.selectedProduct || currentVendor.selectedProduct || "Item";
+      const brand =
+        matchedQuote?.brand || matchedQuote?.tyreBrand || item.brandPreference || item.tyreBrand || currentVendor.tyreBrand || "";
+      const spec =
+        matchedQuote?.sizeSpecification ||
+        matchedQuote?.specification ||
+        item.sizeSpec ||
+        item.sizeSpecification ||
+        item.specification ||
+        currentVendor.sizeSpecification ||
+        "";
+      const fullDescription = [productName, brand, spec].filter(Boolean).join(" - ");
+
+      return {
+        srNo: idx + 1,
+        description: isCancelled
+          ? `[CANCELLED] ${fullDescription || "Item"} (Reason: ${item.cancellationReason || "Cancelled"})`
+          : fullDescription || "Goods Specification as per Purchase Order",
+        hsnCode: matchedQuote?.hsnCode || currentVendor.hsnCode || item.hsnCode || item.hsn || globalData?.stage2?.hsnCode || "-",
+        unit: item.unit || (itemQty ? `${itemQty} NOS` : "NOS"),
+        itemQty,
+        itemRate,
+        discPercent: isCancelled
+          ? "CANCELLED"
+          : (matchedQuote?.discountOffered ?? currentVendor.discountOffered)
+          ? `${matchedQuote?.discountOffered || currentVendor.discountOffered}%`
+          : "-",
+        itemTotal: itemBase,
+        isCancelled,
+      };
+    });
+  }
 
   const grandTotal =
-    vendorTotalOrderValue > 0 && vendorTotalOrderValue >= calculatedSubTotal
-      ? vendorTotalOrderValue
+    Number(currentVendor.totalOrderValue) > 0
+      ? Number(currentVendor.totalOrderValue)
       : calculatedSubTotal > 0
       ? calculatedSubTotal + calculatedTotalGst
-      : vendorTotalOrderValue;
+      : 0;
+
   const gstRateDisplay = currentVendor.gstRate
-    ? String(currentVendor.gstRate).replace(/%/g, '')
-    : (calculatedTotalGst > 0 && calculatedSubTotal > 0
-      ? String(Math.round((calculatedTotalGst / calculatedSubTotal) * 100))
-      : "18");
+    ? String(currentVendor.gstRate).replace(/%/g, "")
+    : calculatedTotalGst > 0 && calculatedSubTotal > 0
+    ? String(Math.round((calculatedTotalGst / calculatedSubTotal) * 100))
+    : "18";
+
   const amountInWordsText = numberToWords(grandTotal);
 
   const handleGeneratePdf = async () => {

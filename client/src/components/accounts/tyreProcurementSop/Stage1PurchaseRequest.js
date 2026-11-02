@@ -21,6 +21,9 @@ function Stage1PurchaseRequest({ data = {}, onChange, globalData = {}, onGlobalC
 
   const currentCompanyKey = globalData?.companyKey || data.companyKey || (globalData?.companyName ? getCompanyProfile(globalData.companyName).id : (allowedCompanyOptions[0]?.value || "SURAVIO"));
   const compProfile = getCompanyProfile(currentCompanyKey);
+  const isSuravio = String(currentCompanyKey || "").toUpperCase().trim() === "SURAVIO" || 
+                    String(compProfile?.id || "").toUpperCase().trim() === "SURAVIO" ||
+                    String(data?.companyName || globalData?.companyName || "").toLowerCase().includes("suravio");
   const [uploadingProof, setUploadingProof] = useState(false);
 
   const fetchAutoNumbers = useCallback(async (forcedCompanyCode) => {
@@ -856,7 +859,7 @@ function Stage1PurchaseRequest({ data = {}, onChange, globalData = {}, onGlobalC
             <thead>
               <tr>
                 <th style={{ width: "160px" }}>Product Name / Item</th>
-                <th style={{ width: "140px" }}>Tyre Category</th>
+                {isSuravio && <th style={{ width: "140px" }}>Tyre Category</th>}
                 <th style={{ width: "140px" }}>Brand Preference</th>
                 <th>Specification</th>
                 <th style={{ width: "80px" }}>Qty</th>
@@ -880,21 +883,23 @@ function Stage1PurchaseRequest({ data = {}, onChange, globalData = {}, onGlobalC
                         placeholder="e.g. Paper, Ink, Tyre"
                       />
                     </td>
-                    <td>
-                      <select
-                        className="sop-select"
-                        value={item.tyreCategory || ""}
-                        onChange={(e) => updateItem(idx, "tyreCategory", e.target.value)}
-                        style={{ height: "34px", fontSize: "11.5px", fontWeight: 600 }}
-                      >
-                        <option value="">-- Tyre Category --</option>
-                        {tyreCategories.map((cat, cIdx) => (
-                          <option key={cIdx} value={cat}>
-                            {cat}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
+                    {isSuravio && (
+                      <td>
+                        <select
+                          className="sop-select"
+                          value={item.tyreCategory || ""}
+                          onChange={(e) => updateItem(idx, "tyreCategory", e.target.value)}
+                          style={{ height: "34px", fontSize: "11.5px", fontWeight: 600 }}
+                        >
+                          <option value="">-- Tyre Category --</option>
+                          {tyreCategories.map((cat, cIdx) => (
+                            <option key={cIdx} value={cat}>
+                              {cat}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                    )}
                     <td>
                       <input
                         className="sop-input"

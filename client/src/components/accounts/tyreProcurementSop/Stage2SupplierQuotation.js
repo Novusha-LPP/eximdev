@@ -68,6 +68,151 @@ const DEFAULT_TERMS = [
           },
         ];
 
+  // Synchronize all awarded supplier rows in Section C whenever quotations in Section B change
+  const syncSelectedSuppliersWithQuotations = useCallback(
+    (currentSuppliers, currentSelectedList) => {
+      if (!currentSelectedList || currentSelectedList.length === 0) {
+        return currentSelectedList;
+      }
+
+      return currentSelectedList.map((item, selIdx) => {
+        // Case 1: Consolidated multi-item vendor selection (ALL__VENDOR)
+        if (item.isConsolidatedVendor && item.selectedSupplier) {
+          const vNameUpper = item.selectedSupplier.trim().toUpperCase();
+          const vendorQuotes = currentSuppliers.filter(
+            (s, i) => (s.supplierName || `SUPPLIER ${i + 1}`).trim().toUpperCase() === vNameUpper
+          );
+          if (vendorQuotes.length > 0) {
+            let sumTotal = 0;
+            let sumQty = 0;
+            const firstSup = vendorQuotes[0] || {};
+            const prodNames = [];
+
+            vendorQuotes.forEach((s, sIdx) => {
+              const p = Number(s.unitPriceNew) || Number(s.unitPriceRemould) || Number(s.priceQuoted) || 0;
+              const q = Number(s.qtyAvailable) || 1;
+              const gstRateVal = parseFloat(String(s.gstRate || 0).replace("%", "")) || 0;
+              const gstAmt = s.gstAmount !== undefined && s.gstAmount !== null && s.gstAmount !== ""
+                ? Number(s.gstAmount)
+                : Math.round((p * q * gstRateVal) / 100);
+              const fr = Number(s.freightCharges) || 0;
+              const disc = Number(s.discountOffered) || 0;
+              sumTotal += (p * q + gstAmt + fr - disc);
+              sumQty += q;
+              const pName = s.selectedProduct || s.selectedTyreType || s.description || `Item ${sIdx + 1}`;
+              if (pName) prodNames.push(pName);
+            });
+
+            return {
+              ...item,
+              selectedSupplier: vNameUpper,
+              selectedProduct: prodNames.length > 0 ? prodNames.join(", ") : (item.selectedProduct || "ALL QUOTED ITEMS"),
+              priceQuoted: vendorQuotes.length === 1 ? (Number(firstSup.unitPriceNew) || Number(firstSup.unitPriceRemould) || Number(firstSup.priceQuoted) || 0) : 0,
+              allocatedQty: sumQty,
+              qty: sumQty,
+              totalOrderValue: sumTotal,
+              contactPerson: firstSup.contactPerson || item.contactPerson || "",
+              supplierAddress: firstSup.supplierAddress || firstSup.address || item.supplierAddress || "",
+              address: firstSup.address || firstSup.supplierAddress || item.address || "",
+              phoneNumber: firstSup.phoneNumber || item.phoneNumber || "",
+              emailWhatsApp: firstSup.emailWhatsApp || item.emailWhatsApp || "",
+              gstNumber: firstSup.gstNumber || item.gstNumber || "",
+              bankName: firstSup.bankName || item.bankName || "",
+              bankAccountNo: firstSup.bankAccountNo || item.bankAccountNo || "",
+              bankIfscCode: firstSup.bankIfscCode || item.bankIfscCode || "",
+              paymentTerms: firstSup.paymentTerms || item.paymentTerms || "",
+              deliveryLocation: firstSup.deliveryLocation || item.deliveryLocation || compProfile?.defaultDeliveryLocation || "",
+              deliveryContact: firstSup.deliveryContact || item.deliveryContact || compProfile?.defaultDeliveryContact || "",
+              hsnCode: (() => {
+                const hCodes = Array.from(new Set(vendorQuotes.map((q) => q.hsnCode).filter(Boolean)));
+                return hCodes.length > 0 ? hCodes.join(", ") : (item.hsnCode || globalData?.stage1?.itemsRequired?.[0]?.hsnCode || "");
+              })(),
+              additionalRemarks: vendorQuotes.map((q) => q.remarks).filter(Boolean).join("; ") || item.additionalRemarks || "",
+              remarks: vendorQuotes.map((q) => q.remarks).filter(Boolean).join("; ") || item.remarks || "",
+            };
+          }
+          return item;
+        }
+
+        // Case 2: Individual quote / item row
+        let quoteIdx = -1;
+        if (item.quoteIndex !== undefined && item.quoteIndex !== null && item.quoteIndex >= 0 && item.quoteIndex < currentSuppliers.length) {
+          quoteIdx = item.quoteIndex;
+        } else {
+          // Match by supplier name and product if available
+          const mIdx = currentSuppliers.findIndex(
+            (s, i) =>
+              (s.supplierName || `SUPPLIER ${i + 1}`).trim().toUpperCase() === (item.selectedSupplier || "").trim().toUpperCase() &&
+              (!item.selectedProduct || (s.selectedProduct || s.selectedTyreType || "").trim().toUpperCase() === item.selectedProduct.trim().toUpperCase())
+          );
+          if (mIdx !== -1) {
+            quoteIdx = mIdx;
+          } else if (item.selectedSupplier) {
+            const byNameIdx = currentSuppliers.findIndex(
+              (s, i) => (s.supplierName || `SUPPLIER ${i + 1}`).trim().toUpperCase() === item.selectedSupplier.trim().toUpperCase()
+            );
+            if (byNameIdx !== -1) quoteIdx = byNameIdx;
+          } else if (currentSelectedList.length === 1 && currentSuppliers.length > 0) {
+            quoteIdx = 0;
+          }
+        }
+
+        if (quoteIdx >= 0 && quoteIdx < currentSuppliers.length) {
+          const s = currentSuppliers[quoteIdx];
+          const newPrice = Number(s?.unitPriceNew) || 0;
+          const remouldPrice = Number(s?.unitPriceRemould) || 0;
+          const price = newPrice > 0 ? newPrice : (remouldPrice > 0 ? remouldPrice : (Number(s?.priceQuoted) || 0));
+          const stage1ItemQty = Number(globalData?.stage1?.itemsRequired?.[quoteIdx]?.qty || 0);
+          const qty = Number(s?.qtyAvailable) || (stage1ItemQty > 0 ? stage1ItemQty : (Number(item.allocatedQty) || 1));
+          const freight = Number(s?.freightCharges) || 0;
+          const discount = Number(s?.discountOffered) || 0;
+          const gstRateVal = parseFloat(String(s?.gstRate || 0).replace("%", "")) || 0;
+          const gstAmt = s?.gstAmount !== undefined && s?.gstAmount !== null && s?.gstAmount !== ""
+            ? Number(s?.gstAmount)
+            : Math.round((price * qty * gstRateVal) / 100);
+          const total = price * qty + gstAmt + freight - discount;
+          const sName = (s?.supplierName || `SUPPLIER ${quoteIdx + 1}`).trim().toUpperCase();
+          const prodName = s?.selectedProduct || s?.selectedTyreType || s?.description || (globalData?.stage1?.itemsRequired?.[quoteIdx]?.productName) || item.selectedProduct || `Item ${quoteIdx + 1}`;
+
+          return {
+            ...item,
+            selectedSupplier: sName,
+            selectedProduct: prodName,
+            quoteIndex: quoteIdx,
+            priceQuoted: price,
+            allocatedQty: qty,
+            qty: qty,
+            totalOrderValue: total > 0 ? total : (price * qty),
+            contactPerson: s?.contactPerson || item.contactPerson || "",
+            supplierAddress: s?.supplierAddress || s?.address || item.supplierAddress || "",
+            address: s?.address || s?.supplierAddress || item.address || "",
+            phoneNumber: s?.phoneNumber || item.phoneNumber || "",
+            emailWhatsApp: s?.emailWhatsApp || item.emailWhatsApp || "",
+            gstNumber: s?.gstNumber || item.gstNumber || "",
+            bankName: s?.bankName || item.bankName || "",
+            bankAccountNo: s?.bankAccountNo || item.bankAccountNo || "",
+            bankIfscCode: s?.bankIfscCode || item.bankIfscCode || "",
+            paymentTerms: s?.paymentTerms || item.paymentTerms || "",
+            gstRate: s?.gstRate || item.gstRate || "",
+            gstAmount: gstAmt,
+            deliveryLocation: s?.deliveryLocation || item.deliveryLocation || compProfile?.defaultDeliveryLocation || "",
+            deliveryContact: s?.deliveryContact || item.deliveryContact || compProfile?.defaultDeliveryContact || "",
+            hsnCode: s?.hsnCode || item.hsnCode || globalData?.stage1?.itemsRequired?.[quoteIdx]?.hsnCode || globalData?.stage1?.itemsRequired?.[0]?.hsnCode || "",
+            brand: s?.brand || s?.tyreBrand || item.brand || "",
+            tyreBrand: s?.brand || s?.tyreBrand || item.tyreBrand || "",
+            specification: s?.sizeSpecification || s?.specification || item.specification || "",
+            sizeSpecification: s?.sizeSpecification || s?.specification || item.sizeSpecification || "",
+            additionalRemarks: s?.remarks || item.additionalRemarks || "",
+            remarks: s?.remarks || item.remarks || "",
+          };
+        }
+
+        return item;
+      });
+    },
+    [globalData, compProfile]
+  );
+
   const updateSupplierField = useCallback(
     (index, field, value) => {
       const current = [...suppliers];
@@ -91,63 +236,30 @@ const DEFAULT_TERMS = [
       }
       current[index] = nextSupplier;
 
-      const updates = { suppliers: current };
-      // Auto-fill and synchronize Section C if it's the primary awarded supplier or not yet picked
-      const isFirstRowEmpty = !selectedSuppliers[0]?.selectedSupplier;
-      const isTargetQuote = selectedSuppliers[0]?.quoteIndex === index || (selectedSuppliers[0]?.quoteIndex === undefined && index === 0);
-      if (
-        selectedSuppliers.length <= 1 &&
-        (isFirstRowEmpty || (isTargetQuote && !selectedSuppliers[0]?.isConsolidatedVendor))
-      ) {
-        const stage1TotalQty = (globalData?.stage1?.itemsRequired || []).reduce(
-          (sum, it) => sum + (Number(it.qty) || 0),
-          0
-        );
-        const price = Number(nextSupplier.unitPriceNew) || Number(nextSupplier.priceQuoted) || 0;
-        const qty = Number(nextSupplier.qtyAvailable) || (stage1TotalQty > 0 ? stage1TotalQty : 1);
-        const freight = Number(nextSupplier.freightCharges) || 0;
-        const discount = Number(nextSupplier.discountOffered) || 0;
-        const gstRateVal = parseFloat(String(nextSupplier.gstRate || 0).replace("%", "")) || 0;
-        const gstAmt = nextSupplier.gstAmount !== undefined && nextSupplier.gstAmount !== null && nextSupplier.gstAmount !== ""
-          ? Number(nextSupplier.gstAmount)
-          : Math.round((price * qty * gstRateVal) / 100);
-        const total = price * qty + gstAmt + freight - discount;
-
-        updates.selectedSuppliers = [
+      // Auto-fill or synchronize Section C immediately
+      let targetSelected = selectedSuppliers;
+      if (!targetSelected || targetSelected.length === 0 || (!targetSelected[0]?.selectedSupplier && current[0]?.supplierName)) {
+        targetSelected = [
           {
-            ...(selectedSuppliers[0] || {}),
-            selectedSupplier: (nextSupplier.supplierName || `SUPPLIER ${index + 1}`).toUpperCase(),
-            priceQuoted: price,
-            allocatedQty: qty,
-            qty: qty,
-            totalOrderValue: total > 0 ? total : (price * qty),
-            contactPerson: nextSupplier.contactPerson || selectedSuppliers[0]?.contactPerson || "",
-            supplierAddress: nextSupplier.supplierAddress || nextSupplier.address || selectedSuppliers[0]?.supplierAddress || "",
-            address: nextSupplier.address || nextSupplier.supplierAddress || selectedSuppliers[0]?.address || "",
-            phoneNumber: nextSupplier.phoneNumber || selectedSuppliers[0]?.phoneNumber || "",
-            emailWhatsApp: nextSupplier.emailWhatsApp || selectedSuppliers[0]?.emailWhatsApp || "",
-            gstNumber: nextSupplier.gstNumber || selectedSuppliers[0]?.gstNumber || "",
-            bankName: nextSupplier.bankName || selectedSuppliers[0]?.bankName || "",
-            bankAccountNo: nextSupplier.bankAccountNo || selectedSuppliers[0]?.bankAccountNo || "",
-            bankIfscCode: nextSupplier.bankIfscCode || selectedSuppliers[0]?.bankIfscCode || "",
-            paymentTerms: nextSupplier.paymentTerms || selectedSuppliers[0]?.paymentTerms || "",
-            gstRate: nextSupplier.gstRate || selectedSuppliers[0]?.gstRate || "",
-            gstAmount: gstAmt,
-            reasonForSelection: selectedSuppliers[0]?.reasonForSelection || "L1 - LOWEST QUOTE",
-            hsnCode: nextSupplier.hsnCode || selectedSuppliers[0]?.hsnCode || globalData?.stage1?.itemsRequired?.[0]?.hsnCode || "",
-            poNumber: selectedSuppliers[0]?.poNumber || globalData?.poNumber || "",
-            deliveryLocation: nextSupplier.deliveryLocation || selectedSuppliers[0]?.deliveryLocation || compProfile?.defaultDeliveryLocation || "",
-            deliveryContact: nextSupplier.deliveryContact || selectedSuppliers[0]?.deliveryContact || compProfile?.defaultDeliveryContact || "",
+            quoteIndex: 0,
+            selectedSupplier: (current[0]?.supplierName || "SUPPLIER 1").toUpperCase(),
+            reasonForSelection: "L1 - LOWEST QUOTE",
+            poNumber: globalData?.poNumber || "",
           },
         ];
-        updates.selectedSupplierL1 = (nextSupplier.supplierName || `SUPPLIER ${index + 1}`).toUpperCase();
-        updates.l1PriceQuoted = price;
-        updates.totalOrderValue = total > 0 ? total : (price * qty);
       }
+      const syncedSelected = syncSelectedSuppliersWithQuotations(current, targetSelected);
+      const overallTotal = syncedSelected.reduce((acc, item) => acc + (Number(item.totalOrderValue) || 0), 0);
 
-      onChange(updates);
+      onChange({
+        suppliers: current,
+        selectedSuppliers: syncedSelected,
+        selectedSupplierL1: syncedSelected[0]?.selectedSupplier || "",
+        l1PriceQuoted: syncedSelected[0]?.priceQuoted || 0,
+        totalOrderValue: overallTotal,
+      });
     },
-    [suppliers, selectedSuppliers, globalData, onChange]
+    [suppliers, selectedSuppliers, globalData, syncSelectedSuppliersWithQuotations, onChange]
   );
 
   const saveSupplierDetails = (sup) => {
@@ -253,7 +365,16 @@ const DEFAULT_TERMS = [
         supplierName: nameUpper,
       };
     }
-    onChange({ suppliers: current });
+
+    const syncedSelected = syncSelectedSuppliersWithQuotations(current, selectedSuppliers);
+    const overallTotal = syncedSelected.reduce((acc, item) => acc + (Number(item.totalOrderValue) || 0), 0);
+    onChange({
+      suppliers: current,
+      selectedSuppliers: syncedSelected,
+      selectedSupplierL1: syncedSelected[0]?.selectedSupplier || "",
+      l1PriceQuoted: syncedSelected[0]?.priceQuoted || 0,
+      totalOrderValue: overallTotal,
+    });
   };
 
   const addSupplier = () => {
@@ -268,7 +389,66 @@ const DEFAULT_TERMS = [
       return;
     }
     const updated = suppliers.filter((_, i) => i !== idx);
-    onChange({ suppliers: updated });
+    const adjustedSelected = (selectedSuppliers || []).map((item) => {
+      if (item.quoteIndex === idx) {
+        return { ...item, quoteIndex: -1 };
+      }
+      if (item.quoteIndex > idx) {
+        return { ...item, quoteIndex: item.quoteIndex - 1 };
+      }
+      return item;
+    });
+    const syncedSelected = syncSelectedSuppliersWithQuotations(updated, adjustedSelected);
+    const overallTotal = syncedSelected.reduce((acc, item) => acc + (Number(item.totalOrderValue) || 0), 0);
+    onChange({
+      suppliers: updated,
+      selectedSuppliers: syncedSelected,
+      selectedSupplierL1: syncedSelected[0]?.selectedSupplier || "",
+      l1PriceQuoted: syncedSelected[0]?.priceQuoted || 0,
+      totalOrderValue: overallTotal,
+    });
+  };
+
+  const applyCompanyLocationToAll = () => {
+    const loc = globalData?.deliveryLocation || globalData?.stage1?.deliveryLocation || compProfile?.defaultDeliveryLocation || "";
+    if (!loc) return;
+    const updated = suppliers.map((sup) => ({
+      ...sup,
+      deliveryLocation: loc,
+    }));
+    const syncedSelected = (selectedSuppliers || []).map((item) => ({
+      ...item,
+      deliveryLocation: loc,
+    }));
+    const overallTotal = syncedSelected.reduce((acc, item) => acc + (Number(item.totalOrderValue) || 0), 0);
+    onChange({
+      suppliers: updated,
+      selectedSuppliers: syncedSelected,
+      selectedSupplierL1: syncedSelected[0]?.selectedSupplier || "",
+      l1PriceQuoted: syncedSelected[0]?.priceQuoted || 0,
+      totalOrderValue: overallTotal,
+    });
+  };
+
+  const applyCompanyContactToAll = () => {
+    const ctc = globalData?.deliveryContact || globalData?.stage1?.deliveryContact || compProfile?.defaultDeliveryContact || "";
+    if (!ctc) return;
+    const updated = suppliers.map((sup) => ({
+      ...sup,
+      deliveryContact: ctc,
+    }));
+    const syncedSelected = (selectedSuppliers || []).map((item) => ({
+      ...item,
+      deliveryContact: ctc,
+    }));
+    const overallTotal = syncedSelected.reduce((acc, item) => acc + (Number(item.totalOrderValue) || 0), 0);
+    onChange({
+      suppliers: updated,
+      selectedSuppliers: syncedSelected,
+      selectedSupplierL1: syncedSelected[0]?.selectedSupplier || "",
+      l1PriceQuoted: syncedSelected[0]?.priceQuoted || 0,
+      totalOrderValue: overallTotal,
+    });
   };
 
   // Get available Products from Stage 1 items + Saved Procurement Products
@@ -362,7 +542,16 @@ const DEFAULT_TERMS = [
     };
 
     current[idx] = updatedSup;
-    onChange({ suppliers: current });
+
+    const syncedSelected = syncSelectedSuppliersWithQuotations(current, selectedSuppliers);
+    const overallTotal = syncedSelected.reduce((acc, item) => acc + (Number(item.totalOrderValue) || 0), 0);
+    onChange({
+      suppliers: current,
+      selectedSuppliers: syncedSelected,
+      selectedSupplierL1: syncedSelected[0]?.selectedSupplier || "",
+      l1PriceQuoted: syncedSelected[0]?.priceQuoted || 0,
+      totalOrderValue: overallTotal,
+    });
 
     // Immediately save new product details to backend and local state if not empty
     if (prodUpper.trim()) {
@@ -375,12 +564,25 @@ const DEFAULT_TERMS = [
     const validSuppliers = suppliersList.filter((s) => s.selectedSupplier && s.selectedSupplier.trim());
     if (validSuppliers.length === 0) return suppliersList;
 
-    // Check if any supplier actually needs a PO number
-    const suppliersNeedingPo = validSuppliers.filter((s) => !s.poNumber || !s.poNumber.trim());
-    if (suppliersNeedingPo.length === 0) return suppliersList;
+    // Detect missing PO numbers or duplicate PO numbers for non-consolidated rows
+    const seenPos = new Set();
+    const needsPoRowIndices = [];
 
-    const suppliersPayload = suppliersNeedingPo.map((s) => ({
-      selectedSupplier: s.selectedSupplier.trim(),
+    suppliersList.forEach((s, idx) => {
+      const sName = (s.selectedSupplier || "").trim();
+      if (!sName) return;
+      const po = (s.poNumber || "").trim();
+      if (!po || (!s.isConsolidatedVendor && seenPos.has(po))) {
+        needsPoRowIndices.push(idx);
+      } else if (po) {
+        seenPos.add(po);
+      }
+    });
+
+    if (needsPoRowIndices.length === 0) return suppliersList;
+
+    const suppliersPayload = needsPoRowIndices.map((idx) => ({
+      selectedSupplier: suppliersList[idx].selectedSupplier.trim(),
     }));
 
     try {
@@ -393,20 +595,23 @@ const DEFAULT_TERMS = [
         }
       );
 
-      if (res.data?.success && res.data?.supplierToPo) {
-        const supplierToPo = res.data.supplierToPo;
-        const updatedWithPo = suppliersList.map((s) => {
-          const sName = (s.selectedSupplier || "").trim().toUpperCase();
-          const assignedPo = s.poNumber || supplierToPo[sName] || globalData?.poNumber || "";
-          return { ...s, poNumber: assignedPo };
+      if (res.data?.success) {
+        const poNumbersList = res.data.poNumbersList || [];
+        const supplierToPo = res.data.supplierToPo || {};
+        const updated = [...suppliersList];
+
+        needsPoRowIndices.forEach((rowIdx, pIdx) => {
+          const sName = (updated[rowIdx].selectedSupplier || "").trim().toUpperCase();
+          const assignedPo = poNumbersList[pIdx] || supplierToPo[sName] || globalData?.poNumber || "";
+          updated[rowIdx] = { ...updated[rowIdx], poNumber: assignedPo };
         });
 
         // Also sync the first supplier's PO to globalData.poNumber if empty or legacy
-        if (updatedWithPo[0]?.poNumber && onGlobalChange && !globalData?.poNumber) {
-          onGlobalChange("poNumber", updatedWithPo[0].poNumber);
+        if (updated[0]?.poNumber && onGlobalChange && !globalData?.poNumber) {
+          onGlobalChange("poNumber", updated[0].poNumber);
         }
 
-        return updatedWithPo;
+        return updated;
       }
     } catch (err) {
       console.error("Error auto-fetching supplier PO numbers:", err);
@@ -475,9 +680,12 @@ const DEFAULT_TERMS = [
         gstRate: q.gstRate || "",
         gstAmount: gstAmt,
         deliveryLocation: q.deliveryLocation || compProfile?.defaultDeliveryLocation || "",
-        deliveryContact: q.deliveryContact || compProfile?.defaultDeliveryContact || "",
         hsnCode: q.hsnCode || globalData?.stage1?.itemsRequired?.[q.quoteIndex]?.hsnCode || "",
-        poNumber: globalData?.poNumber || "",
+        brand: q.brand || q.tyreBrand || "",
+        tyreBrand: q.brand || q.tyreBrand || "",
+        specification: q.sizeSpecification || q.specification || "",
+        sizeSpecification: q.sizeSpecification || q.specification || "",
+        poNumber: "",
       });
     }
 
@@ -497,6 +705,25 @@ const DEFAULT_TERMS = [
     let current = [...selectedSuppliers];
     const val = typeof value === "string" ? value.toUpperCase() : value;
     current[idx] = { ...current[idx], [field]: val };
+
+    if (field === "allocatedQty" || field === "qty") {
+      const q = Number(val) || 0;
+      current[idx].allocatedQty = q;
+      current[idx].qty = q;
+      const p = Number(current[idx].priceQuoted) || 0;
+      const gstRateVal = parseFloat(String(current[idx].gstRate || 0).replace("%", "")) || 0;
+      const gstAmt = gstRateVal > 0 ? Math.round((p * q * gstRateVal) / 100) : (Number(current[idx].gstAmount) || 0);
+      current[idx].gstAmount = gstAmt;
+      current[idx].totalOrderValue = Math.round((p * q + gstAmt) * 100) / 100;
+    } else if (field === "priceQuoted") {
+      const p = Number(val) || 0;
+      current[idx].priceQuoted = p;
+      const q = Number(current[idx].allocatedQty ?? current[idx].qty) || 0;
+      const gstRateVal = parseFloat(String(current[idx].gstRate || 0).replace("%", "")) || 0;
+      const gstAmt = gstRateVal > 0 ? Math.round((p * q * gstRateVal) / 100) : (Number(current[idx].gstAmount) || 0);
+      current[idx].gstAmount = gstAmt;
+      current[idx].totalOrderValue = Math.round((p * q + gstAmt) * 100) / 100;
+    }
 
     if (field === "selectedSupplier") {
       const rawVal = String(value || "").trim();
@@ -610,8 +837,11 @@ const DEFAULT_TERMS = [
             gstRate: s.gstRate || "",
             gstAmount: gstAmt,
             deliveryLocation: s.deliveryLocation || compProfile?.defaultDeliveryLocation || "",
-            deliveryContact: s.deliveryContact || compProfile?.defaultDeliveryContact || "",
             hsnCode: s.hsnCode || globalData?.stage1?.itemsRequired?.[quoteIdx]?.hsnCode || globalData?.stage1?.itemsRequired?.[0]?.hsnCode || "",
+            brand: s.brand || s.tyreBrand || "",
+            tyreBrand: s.brand || s.tyreBrand || "",
+            specification: s.sizeSpecification || s.specification || "",
+            sizeSpecification: s.sizeSpecification || s.specification || "",
             additionalRemarks: s.remarks || "",
             remarks: s.remarks || "",
           };
@@ -1236,10 +1466,7 @@ const DEFAULT_TERMS = [
                         <span>{label}</span>
                         <button
                           type="button"
-                          onClick={() => {
-                            const loc = globalData?.stage1?.deliveryLocation || compProfile.defaultDeliveryLocation;
-                            suppliers.forEach((_, sIdx) => updateSupplierField(sIdx, "deliveryLocation", loc));
-                          }}
+                          onClick={applyCompanyLocationToAll}
                           style={{
                             fontSize: "9px",
                             fontWeight: 700,
@@ -1260,10 +1487,7 @@ const DEFAULT_TERMS = [
                         <span>{label}</span>
                         <button
                           type="button"
-                          onClick={() => {
-                            const ctc = globalData?.stage1?.deliveryContact || compProfile.defaultDeliveryContact;
-                            suppliers.forEach((_, sIdx) => updateSupplierField(sIdx, "deliveryContact", ctc));
-                          }}
+                          onClick={applyCompanyContactToAll}
                           style={{
                             fontSize: "9px",
                             fontWeight: 700,
@@ -1394,7 +1618,7 @@ const DEFAULT_TERMS = [
                           boxShadow: "0 1px 3px rgba(22, 163, 74, 0.3)",
                         }}
                       >
-                        🏆 Award All {vQuotes.length} Items to {vName} (Single PO: ₹{vSum.toLocaleString("en-IN")})
+                        🏆 Award All {vQuotes.length} Items to {vName} (Combined in 1 PO: ₹{vSum.toLocaleString("en-IN")})
                       </button>
                       <button
                         type="button"
@@ -1414,7 +1638,7 @@ const DEFAULT_TERMS = [
                           boxShadow: "0 1px 3px rgba(37, 99, 235, 0.3)",
                         }}
                       >
-                        ➕ Auto-Add {vQuotes.length} Item Lines for {vName}
+                        ➕ Auto-Add {vQuotes.length} Separate Item POs for {vName} (Single PO per Item)
                       </button>
                     </div>
                   </div>
@@ -1531,7 +1755,6 @@ const DEFAULT_TERMS = [
                   onChange={(e) => {
                     const newQty = Number(e.target.value) || 0;
                     updateSelectedSupplier(idx, "allocatedQty", newQty);
-                    updateSelectedSupplier(idx, "qty", newQty);
                   }}
                   style={{ textAlign: "right", fontWeight: 600 }}
                 />

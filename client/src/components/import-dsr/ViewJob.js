@@ -7023,7 +7023,7 @@ function JobDetails() {
                         <td style={{ verticalAlign: "middle", textAlign: "center", padding: "4px 8px" }}>
                           <Checkbox size="small" checked={doc.is_sent_to_esanchit || false} style={{ padding: "4px" }} onChange={(e) => {
                             const updatedDocuments = [...cthDocuments];
-                            updatedDocuments[index].is_sent_to_esanchit = e.target.checked;
+                            updatedDocuments[index] = { ...updatedDocuments[index], is_sent_to_esanchit: e.target.checked };
                             setCthDocuments(updatedDocuments);
                           }} />
                         </td>
@@ -7036,7 +7036,7 @@ function JobDetails() {
                             buttonSx={{ fontSize: "0.9rem", padding: "2px 10px", minWidth: "auto", textTransform: "none" }}
                             onFilesUploaded={(urls) => {
                               const updatedDocuments = [...cthDocuments];
-                              updatedDocuments[index].url = [...(updatedDocuments[index].url || []), ...urls];
+                              updatedDocuments[index] = { ...updatedDocuments[index], url: [...(updatedDocuments[index].url || []), ...urls] };
                               setCthDocuments(updatedDocuments);
                             }} />
                         </td>
@@ -7044,7 +7044,7 @@ function JobDetails() {
                           <ImagePreview images={doc.url || []} isDsr={true} readOnly={false}
                             onDeleteImage={(deleteIndex) => {
                               const updatedDocuments = [...cthDocuments];
-                              updatedDocuments[index].url = updatedDocuments[index].url.filter((_, i) => i !== deleteIndex);
+                              updatedDocuments[index] = { ...updatedDocuments[index], url: updatedDocuments[index].url.filter((_, i) => i !== deleteIndex) };
                               setCthDocuments(updatedDocuments);
                             }} />
                         </td>

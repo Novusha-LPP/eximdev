@@ -52,7 +52,7 @@ export function JobSearchBox({ value, onCommit, sx }) {
     <TextField
       value={text}
       onChange={(e) => change(e.target.value)}
-      placeholder="Search by Job No, Importer, or AWB/BL Number"
+      placeholder="Search job no, importer, BL / AWB"
       size="small"
       variant="outlined"
       sx={sx}
@@ -73,6 +73,7 @@ export function ImporterFilter({ value, options, onCommit, sx }) {
     <Autocomplete
       sx={sx}
       freeSolo
+      componentsProps={{ popper: { className: "jl-popup" } }}
       options={options}
       value={value || ""}
       inputValue={text}

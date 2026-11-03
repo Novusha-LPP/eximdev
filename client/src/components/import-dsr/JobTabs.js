@@ -19,7 +19,6 @@ import ImportUtilityTool from "../import-utility-tool/ImportUtilityTool";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import { useLocation } from "react-router-dom";
 import { useState } from "react";
-import Badge from "@mui/material/Badge";
 import { UserContext } from "../../contexts/UserContext";
 import { useContext } from "react";
 import axios from "axios";
@@ -34,7 +33,6 @@ import {
   CircularProgress,
   Alert,
   Paper,
-  Chip,
   Divider,
   InputAdornment,
   Tooltip,
@@ -71,7 +69,7 @@ function CustomTabPanel(props) {
       aria-labelledby={`simple-tab-${index}`}
       {...other}
     >
-      {value === index && <Box sx={{ p: { xs: 0.5, sm: 1 } }}>{children}</Box>}
+      {value === index && <Box sx={{ p: 0 }}>{children}</Box>}
     </div>
   );
 }
@@ -335,161 +333,98 @@ function JobTabs() {
     }
   };
 
-  // --- Styles ---
-  const mainButtonStyle = {
-    borderRadius: 3,
-    textTransform: "none",
-    fontWeight: 600,
-    fontSize: "0.875rem",
-    padding: "8px 24px",
-    background: "linear-gradient(135deg, #1976d2 0%, #1565c0 100%)",
-    color: "#ffffff",
-    boxShadow: "0 4px 12px rgba(25, 118, 210, 0.2)",
-    transition: "all 0.2s ease-in-out",
-    "&:hover": {
-      background: "linear-gradient(135deg, #1565c0 0%, #0d47a1 100%)",
-      transform: "translateY(-1px)",
-      boxShadow: "0 6px 16px rgba(25, 118, 210, 0.3)",
-    },
-  };
-
   const getCategoryIcon = (id) => {
     const cat = API_CATEGORIES.find(c => c.id === id);
     return cat ? cat.icon : <ApiIcon />;
   };
 
   return (
-    <Box sx={{ width: "100%" }}>
+    <Box className="dsr-shell" sx={{ width: "100%" }}>
       {/* Header Tabs & Actions */}
       {/* Tabs and actions wrap on narrow screens; tabs scroll sideways instead of collapsing */}
-      <Box sx={{ borderBottom: 1, borderColor: "divider", display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 1, mb: 2 }}>
+      <Box className="dsr-bar">
         <Tabs
+          className="dsr-status-tabs"
           value={value}
           onChange={handleChange}
           aria-label="job type tabs"
           variant="scrollable"
           scrollButtons="auto"
           allowScrollButtonsMobile
-          sx={{ maxWidth: "100%", minWidth: 0, '& .MuiTab-root': { fontWeight: 600 } }}
         >
-          <Tab 
+          <Tab
             label={
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <span className="dsr-tab-label">
                 <span>Pending</span>
-                {counts.Pending > 0 && (
-                  <Chip 
-                    label={counts.Pending} 
-                    size="small" 
-                    color="primary" 
-                    sx={{ height: 20, fontSize: "0.75rem", fontWeight: "bold" }} 
-                  />
-                )}
-              </Box>
-            } 
-            {...a11yProps(0)} 
+                {counts.Pending > 0 && <span className="dsr-count dsr-count--blue">{counts.Pending}</span>}
+              </span>
+            }
+            {...a11yProps(0)}
           />
-          <Tab 
+          <Tab
             label={
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <span className="dsr-tab-label">
                 <span>Completed</span>
-                {counts.Completed > 0 && (
-                  <Chip 
-                    label={counts.Completed} 
-                    size="small" 
-                    color="success" 
-                    sx={{ height: 20, fontSize: "0.75rem", fontWeight: "bold" }} 
-                  />
-                )}
-              </Box>
-            } 
-            {...a11yProps(1)} 
+                {counts.Completed > 0 && <span className="dsr-count dsr-count--green">{counts.Completed}</span>}
+              </span>
+            }
+            {...a11yProps(1)}
           />
-          <Tab 
+          <Tab
             label={
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <span className="dsr-tab-label">
                 <span>Cancelled</span>
-                {counts.Cancelled > 0 && (
-                  <Chip 
-                    label={counts.Cancelled} 
-                    size="small" 
-                    color="default" 
-                    sx={{ height: 20, fontSize: "0.75rem", fontWeight: "bold" }} 
-                  />
-                )}
-              </Box>
-            } 
-            {...a11yProps(2)} 
+                {counts.Cancelled > 0 && <span className="dsr-count dsr-count--grey">{counts.Cancelled}</span>}
+              </span>
+            }
+            {...a11yProps(2)}
           />
           {(user.role === "Admin" || user.modules?.includes("Billing Confirmation")) && (
-            <Tab 
+            <Tab
               label={
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <span className="dsr-tab-label">
                   <span>Billing Confirmation</span>
                   {counts.Billing_Confirmation > 0 && (
-                    <Chip 
-                      label={counts.Billing_Confirmation} 
-                      size="small" 
-                      color="error" 
-                      sx={{ height: 20, fontSize: "0.75rem", fontWeight: "bold" }} 
-                    />
+                    <span className="dsr-count dsr-count--red">{counts.Billing_Confirmation}</span>
                   )}
-                </Box>
-              } 
-              {...a11yProps(3)} 
+                </span>
+              }
+              {...a11yProps(3)}
             />
           )}
         </Tabs>
 
-        <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: { xs: 1, sm: 2 }, py: { xs: 1, md: 0 } }}>
-          <Box sx={{ position: "relative" }}>
-            <Button
-              variant="contained"
-              size="small"
-              onClick={() => setShowUnresolvedOnly((prev) => !prev)}
-              sx={{
-                ...mainButtonStyle,
-                background: showUnresolvedOnly
-                  ? "linear-gradient(135deg, #d32f2f 0%, #c62828 100%)" // Red for "Show All" (Active Filter)
-                  : "linear-gradient(135deg, #1976d2 0%, #1565c0 100%)", // Blue for "Pending Queries"
-                boxShadow: showUnresolvedOnly ? "0 4px 12px rgba(211, 47, 47, 0.3)" : mainButtonStyle.boxShadow
-              }}
-            >
-              {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
-            </Button>
-            <Badge
-              badgeContent={unresolvedCount}
-              color="error"
-              sx={{ position: "absolute", top: -5, right: -5 }}
-            />
-          </Box>
+        <Box className="dsr-actions">
+          <Button
+            className={`dsr-btn ${showUnresolvedOnly ? "dsr-btn--danger" : "dsr-btn--primary"}`}
+            size="small"
+            disableElevation
+            onClick={() => setShowUnresolvedOnly((prev) => !prev)}
+          >
+            {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
+            {unresolvedCount > 0 && <span className="dsr-btn__count">{unresolvedCount}</span>}
+          </Button>
 
           {(user.role === "Admin" || user.can_access_exim_bot) && (
             <Button
-              variant="contained"
+              className="dsr-btn dsr-btn--green"
               startIcon={<AutoModeIcon />}
+              disableElevation
               onClick={handleOpenApiFetch}
-              sx={{ ...mainButtonStyle, background: "linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%)" }}
             >
               Exim Bot
             </Button>
           )}
           <Button
-            variant="contained"
+            className="dsr-btn dsr-btn--soft"
             startIcon={<ToolboxIcon />}
+            disableElevation
             onClick={handleOpenUtilityTool}
-            sx={mainButtonStyle}
           >
             Utility Tool
           </Button>
           <Tooltip title="My Doc Requests">
-            <IconButton
-              onClick={() => setOpenMyRequests(true)}
-              sx={{
-                background: "rgba(26, 35, 126, 0.05)",
-                color: "#1a237e",
-                "&:hover": { background: "rgba(26, 35, 126, 0.1)" }
-              }}
-            >
+            <IconButton className="dsr-icon-btn" onClick={() => setOpenMyRequests(true)} aria-label="My Doc Requests">
               <AssignmentIcon />
             </IconButton>
           </Tooltip>

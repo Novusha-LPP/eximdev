@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo } from "react";
 import { IconButton, Chip, Tooltip } from "@mui/material";
-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import ContentCopyIcon from "@mui/icons-material/ContentCopyOutlined";
 import { useNavigate, useLocation } from "react-router-dom";
 import EditableDateCell from "../components/gallery/EditableDateCell";
 import BENumberCell from "../components/gallery/BENumberCell.js";
@@ -8,14 +8,80 @@ import { useSearchQuery } from "../contexts/SearchQueryContext";
 import { getLatestJobDate } from "../utils/getLatestJobDate";
 import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
+import CheckIcon from "@mui/icons-material/Check";
+import { getJobUrgency, getJobStatusLabel } from "../utils/jobStatusStyle";
 
 import BLTrackingCell from "./BLTrackingCell.js";
 import axios from "axios";
-import RefreshIcon from "@mui/icons-material/Refresh";
+import RefreshIcon from "@mui/icons-material/RefreshOutlined";
 import InvoiceDisplay from "../components/import-do/InvoiceDisplay";
 import { isAirMode } from "../utils/modeLogic";
 import { prefetchJob } from "../utils/jobPrefetch";
 import ContainerCellContent from "../components/ContainerCellContent";
+
+// E-Sanchit documents of a job: the first few are shown, the rest open with "Show n more"
+const ES_PREVIEW_COUNT = 4;
+function EsanchitDocs({ documents, handleCopy }) {
+  const [showAll, setShowAll] = React.useState(false);
+  if (!documents.length) return <div className="jc-empty">No Documents Available</div>;
+  const visible = showAll ? documents : documents.slice(0, ES_PREVIEW_COUNT);
+  const hidden = documents.length - ES_PREVIEW_COUNT;
+  return (
+    <div className="jc-es">
+      <span className="jc-k">
+        {documents.length} document{documents.length > 1 ? "s" : ""}
+      </span>
+      {visible.map((doc, index) => (
+        <div key={index} className="jc-es-doc">
+          <div className="jc-es-main">
+            <a
+              className="jc-es-link"
+              href={doc.url?.[0] || "#"}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={`${doc.document_name} - ${doc.irn}`}
+            >
+              <span className="jc-es-name">{doc.document_name}</span>
+              <span className="jc-es-irn">
+                {doc.irn}
+                <span className="jc-es-sep"> · </span>
+                {new Date(doc.document_check_date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }).replace("Sept", "Sep")}
+              </span>
+            </a>
+          </div>
+          {/* Copy IRN button; stop propagation to avoid opening the link */}
+          <IconButton
+            size="small"
+            className="jc-icon-btn"
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              if (doc.irn) handleCopy(event, doc.irn);
+            }}
+            aria-label={`Copy IRN ${doc.irn}`}
+          >
+            <abbr title="Copy IRN">
+              <ContentCopyIcon fontSize="inherit" />
+            </abbr>
+          </IconButton>
+        </div>
+      ))}
+      {hidden > 0 && (
+        <button
+          type="button"
+          className="jc-more"
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowAll((prev) => !prev);
+          }}
+        >
+          {showAll ? "Show less" : `Show ${hidden} more`}
+          <KeyboardArrowDownIcon className={`jc-more__chev${showAll ? " is-open" : ""}`} fontSize="inherit" />
+        </button>
+      )}
+    </div>
+  );
+}
 
 // Custom hook to manage job columns configuration
 function useJobColumns(
@@ -111,86 +177,13 @@ function useJobColumns(
             payment_method,
             custom_house,
             detailed_status,
-            vessel_berthing,
-            container_nos,
           } = row;
 
-          // ----- existing color logic -----
-          let bgColor = "";
-          let textColor = "blue";
-          const currentDate = new Date();
-
-          const calculateDaysDifference = (targetDate) => {
-            const date = new Date(targetDate);
-            const timeDifference = date.getTime() - currentDate.getTime();
-            return Math.ceil(timeDifference / (1000 * 3600 * 24));
-          };
-
-          if (detailed_status === "Estimated Time of Arrival") {
-            const daysDifference = calculateDaysDifference(vessel_berthing);
-            if (daysDifference >= 0) {
-              if (daysDifference === 0) {
-                bgColor = "#ff1111";
-                textColor = "white";
-              } else if (daysDifference <= 2) {
-                bgColor = "#f85a5a";
-                textColor = "black";
-              } else if (daysDifference <= 5) {
-                bgColor = "#fd8e8e";
-                textColor = "black";
-              }
-            }
-          }
-
-          if (detailed_status === "Billing Pending" && container_nos) {
-            container_nos.forEach((container) => {
-              const targetDate =
-                consignment_type === "LCL"
-                  ? container.delivery_date
-                  : container.emptyContainerOffLoadDate;
-
-              if (targetDate) {
-                const daysDifference = calculateDaysDifference(targetDate);
-                if (daysDifference <= 0 && daysDifference >= -5) {
-                  bgColor = "white";
-                  textColor = "blue";
-                } else if (daysDifference <= -6 && daysDifference >= -10) {
-                  bgColor = "orange";
-                  textColor = "black";
-                } else if (daysDifference < -10) {
-                  bgColor = "red";
-                  textColor = "white";
-                }
-              }
-            });
-          }
-
-          if (
-            (detailed_status === "Custom Clearance Completed" && container_nos) ||
-            detailed_status === "BE Noted, Clearance Pending" ||
-            detailed_status === "PCV Done, Duty Payment Pending"
-          ) {
-            container_nos.forEach((container) => {
-              const daysDifference = calculateDaysDifference(
-                container.detention_from
-              );
-
-              if (daysDifference <= 0) {
-                bgColor = "darkred";
-                textColor = "white";
-              } else if (daysDifference === 1) {
-                bgColor = "red";
-                textColor = "white";
-              } else if (daysDifference === 2) {
-                bgColor = "orange";
-                textColor = "black";
-              } else if (daysDifference === 3) {
-                bgColor = "yellow";
-                textColor = "black";
-              }
-            });
-          }
-          // ----- end color logic -----
+          // How urgent the job is (same rules the job-number colour always used), as a labelled tag
+          const urgency = getJobUrgency(row);
+          const statusLabel = getJobStatusLabel(detailed_status);
+          const jobPath = `/import-dsr/job/${branch_code}/${trade_type}/${row.mode}/${job_no}/${year}`;
+          const prefetch = () => prefetchJobFor(branch_code, trade_type, row.mode, job_no, year);
 
           const handleRefresh = async (e) => {
             e.preventDefault();
@@ -222,241 +215,178 @@ function useJobColumns(
             hasOpenQueries: false,
           };
 
+          const jobLink = (
+            <a
+              className="jc-jobno"
+              href={jobPath}
+              onMouseEnter={prefetch}
+              onFocus={prefetch}
+              onTouchStart={prefetch}
+              onClick={(e) => {
+                e.stopPropagation();
+                openJobSameTab(e, jobPath);
+              }}
+            >
+              {job_number || job_no}
+            </a>
+          );
+
+          const copyJobNumber = (
+            <IconButton
+              size="small"
+              className="jc-icon-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCopy(e, job_number || job_no);
+              }}
+              title="Copy Job Number"
+            >
+              <ContentCopyIcon sx={{ fontSize: "14px" }} />
+            </IconButton>
+          );
+
           // Render compact row when shrunk
           if (isShrunk) {
             return (
-              <div style={{ textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
+              <div className="jc-compact">
                 <IconButton
                   size="small"
+                  className="jc-icon-btn"
                   onClick={(e) => {
                     e.stopPropagation();
                     toggleRowExpanded(row._id);
                   }}
-                  sx={{ p: 0.2 }}
                   title="Click to expand row"
                 >
-                  <KeyboardArrowRightIcon sx={{ fontSize: 18, color: "#64748b" }} />
+                  <KeyboardArrowRightIcon sx={{ fontSize: 18 }} />
                 </IconButton>
-                <a
-                  href={`/import-dsr/job/${branch_code}/${trade_type}/${row.mode}/${job_no}/${year}`}
-                  onMouseEnter={() => prefetchJobFor(branch_code, trade_type, row.mode, job_no, year)}
-                  onFocus={() => prefetchJobFor(branch_code, trade_type, row.mode, job_no, year)}
-                  onTouchStart={() => prefetchJobFor(branch_code, trade_type, row.mode, job_no, year)}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    openJobSameTab(e, `/import-dsr/job/${branch_code}/${trade_type}/${row.mode}/${job_no}/${year}`);
-                  }}
-                  style={{
-                    cursor: "pointer",
-                    color: textColor,
-                    backgroundColor: bgColor || "transparent",
-                    padding: "3px 6px",
-                    borderRadius: "4px",
-                    fontWeight: "bold",
-                    display: "inline-block",
-                    textDecoration: "none",
-                    fontSize: "13px",
-                  }}
-                >
-                  {job_number || job_no}
-                </a>
-                <IconButton
-                  size="small"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleCopy(e, job_number || job_no);
-                  }}
-                  sx={{ p: 0.2 }}
-                  title="Copy Job Number"
-                >
-                  <ContentCopyIcon sx={{ fontSize: "14px", color: "#64748b" }} />
-                </IconButton>
-                <span style={{ fontSize: "11px", color: "#64748b" }}>
-                  ({type_of_b_e})
+                {jobLink}
+                {copyJobNumber}
+                {type_of_b_e && <span className="jc-tag jc-tag--sm">{type_of_b_e}</span>}
+                <span className="jc-status jc-status--sm" title={statusLabel}>
+                  {statusLabel}
                 </span>
                 {queryStat.hasQueries && (
                   <span
-                    style={{
-                      width: "8px",
-                      height: "8px",
-                      borderRadius: "50%",
-                      backgroundColor: queryStat.hasUnseen ? "#ef4444" : queryStat.hasOpenQueries ? "#f59e0b" : "#10b981",
-                      display: "inline-block",
-                    }}
+                    className={`jc-dot ${
+                      queryStat.hasUnseen ? "jc-dot--red" : queryStat.hasOpenQueries ? "jc-dot--amber" : "jc-dot--green"
+                    }`}
+                    title={queryStat.hasUnseen ? "New message" : queryStat.hasOpenQueries ? "Open query" : "Resolved"}
                   />
                 )}
               </div>
             );
           }
 
-          // Render exact full old UI when expanded or in full mode
+          // Full card header: job, tags, status, urgency and the query actions
           return (
-            <div style={{ textAlign: "center" }}>
-              {viewMode === "shrink" && (
-                <div style={{ display: "flex", justifyContent: "flex-start", marginBottom: "4px" }}>
+            <div className="jc-strip">
+              <div className="jc-id">
+                {isExpanded && (
                   <IconButton
                     size="small"
+                    className="jc-icon-btn"
                     onClick={(e) => {
                       e.stopPropagation();
                       toggleRowExpanded(row._id);
                     }}
-                    sx={{ p: 0.2 }}
                     title="Click to collapse row"
                   >
                     <KeyboardArrowDownIcon sx={{ fontSize: 18, color: "#2563eb" }} />
                   </IconButton>
-                </div>
-              )}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
-                <a
-                  href={`/import-dsr/job/${branch_code}/${trade_type}/${row.mode}/${job_no}/${year}`}
-                  onMouseEnter={() => prefetchJobFor(branch_code, trade_type, row.mode, job_no, year)}
-                  onFocus={() => prefetchJobFor(branch_code, trade_type, row.mode, job_no, year)}
-                  onTouchStart={() => prefetchJobFor(branch_code, trade_type, row.mode, job_no, year)}
-                  onClick={(e) => openJobSameTab(e, `/import-dsr/job/${branch_code}/${trade_type}/${row.mode}/${job_no}/${year}`)}
-                  style={{
-                    cursor: "pointer",
-                    color: textColor,
-                    backgroundColor: bgColor || "transparent",
-                    padding: "10px",
-                    borderRadius: "5px",
-                    textAlign: "center",
-                    display: "inline-block",
-                    textDecoration: "none",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type}
-                  <br /> {custom_house} <br /> {payment_method}
-                </a>
+                )}
+                {jobLink}
+                {copyJobNumber}
                 <IconButton
                   size="small"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleCopy(e, job_number || job_no);
-                  }}
-                  sx={{ p: 0.2 }}
-                  title="Copy Job Number"
-                >
-                  <ContentCopyIcon sx={{ fontSize: "14px", color: "#64748b" }} />
-                </IconButton>
-              </div>
-
-              {branch_code === "GIM" && row.cfs_name && (
-                <div style={{ marginTop: "4px", fontWeight: "bold", color: "#000", fontSize: "0.85rem" }}>
-                  CFS Loc: {row.cfs_name}
-                </div>
-              )}
-              <div style={{ marginTop: 4 }}>
-                <IconButton
-                  size="small"
+                  className="jc-icon-btn"
                   onClick={handleRefresh}
                   aria-label="refresh-job"
+                  title="Refresh this job"
                 >
-                  <RefreshIcon fontSize="inherit" />
+                  <RefreshIcon className="ic-refresh" sx={{ fontSize: "15px" }} />
                 </IconButton>
               </div>
+
+              <div className="jc-tags">
+                {type_of_b_e && <span className="jc-tag">{type_of_b_e}</span>}
+                {consignment_type && <span className="jc-tag">{consignment_type}</span>}
+                {custom_house && <span className="jc-tag">{custom_house}</span>}
+                {payment_method && <span className="jc-tag">{payment_method}</span>}
+                {branch_code === "GIM" && row.cfs_name && (
+                  <span className="jc-tag jc-tag--brand">CFS Loc: {row.cfs_name}</span>
+                )}
+              </div>
+
               {row.obl_telex_bl === "OBL" && (
-                <div style={{ marginTop: 4, color: "red", fontSize: "15px" }}>
-                  Advanced OBL is received <br />
-                  {formatDate(row.document_received_date)}
-                </div>
+                <span className="jc-adv">
+                  Advanced OBL is received · {formatDate(row.document_received_date)}
+                </span>
               )}
 
-              {/* Query Action Buttons & Status inside Job No Cell */}
-              <div style={{ marginTop: "6px", display: "flex", flexDirection: "column", gap: "4px", alignItems: "center" }}>
-                <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-                  {/* Red Dot - Raise Query to Client */}
+              <div className="jc-right">
+                {urgency && (
+                  <span className="jc-urg" style={{ background: urgency.bg, color: urgency.fg }} title="Urgency">
+                    {urgency.label}
+                  </span>
+                )}
+                <span className="jc-status" title="Detailed status">
+                  {statusLabel}
+                </span>
+
+                <div className="jc-q">
+                  {/* Raise a query to the client */}
                   <button
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); handleRedClick(row); }}
-                    style={{
-                      width: "14px",
-                      height: "14px",
-                      padding: 0,
-                      backgroundColor: "#ef4444",
-                      borderRadius: "50%",
-                      border: "none",
-                      cursor: "pointer",
-                      transition: "all 0.15s ease",
+                    className="jc-qbtn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRedClick(row);
                     }}
                     title="Raise query to client"
-                  />
+                  >
+                    <span className="jc-dot jc-dot--red" />
+                    Raise query
+                  </button>
 
-                  {/* Yellow Dot - View & Reply Chat */}
+                  {/* View the replies and reply back */}
                   {queryStat.hasQueries && (
-                    <div style={{ position: "relative", display: "inline-flex" }}>
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); handleYellowClick(row); }}
-                        style={{
-                          width: "14px",
-                          height: "14px",
-                          padding: 0,
-                          backgroundColor: "#f59e0b",
-                          borderRadius: "50%",
-                          border: "none",
-                          cursor: "pointer",
-                          transition: "all 0.15s ease",
-                        }}
-                        title="View replies & reply back"
+                    <button
+                      type="button"
+                      className={`jc-qbtn ${
+                        queryStat.hasUnseen ? "jc-qbtn--new" : queryStat.hasOpenQueries ? "jc-qbtn--open" : "jc-qbtn--done"
+                      }`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenQueryChat(row);
+                      }}
+                      title="View replies & reply back"
+                    >
+                      <span
+                        className={`jc-dot ${
+                          queryStat.hasUnseen ? "jc-dot--red" : queryStat.hasOpenQueries ? "jc-dot--amber" : "jc-dot--green"
+                        }`}
                       />
-                      {queryStat.hasUnseen && (
-                        <span
-                          style={{
-                            position: "absolute",
-                            top: "-3px",
-                            right: "-3px",
-                            width: "7px",
-                            height: "7px",
-                            borderRadius: "50%",
-                            backgroundColor: "#ef4444",
-                            border: "1px solid #fff",
-                            pointerEvents: "none",
-                          }}
-                        />
-                      )}
-                    </div>
+                      {queryStat.hasUnseen ? "New Message" : queryStat.hasOpenQueries ? "Open Query" : "Resolved"}
+                    </button>
                   )}
 
-                  {/* Green Dot - Resolve Query */}
+                  {/* Resolve the open query */}
                   {queryStat.hasOpenQueries && (
                     <button
                       type="button"
-                      onClick={(e) => { e.stopPropagation(); handleResolveOpenQuery(row); }}
-                      style={{
-                        width: "14px",
-                        height: "14px",
-                        padding: 0,
-                        backgroundColor: "#10b981",
-                        borderRadius: "50%",
-                        border: "none",
-                        cursor: "pointer",
-                        transition: "all 0.15s ease",
+                      className="jc-qbtn jc-qbtn--resolve"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleResolveOpenQuery(row);
                       }}
                       title="Resolve open query"
-                    />
+                    >
+                      <CheckIcon sx={{ fontSize: 15 }} />
+                      Resolve
+                    </button>
                   )}
                 </div>
-
-                {/* Status Pill */}
-                {queryStat.hasQueries && (
-                  <span
-                    style={{
-                      padding: "2px 6px",
-                      borderRadius: "4px",
-                      fontSize: "9px",
-                      fontWeight: "700",
-                      cursor: "pointer",
-                      backgroundColor: queryStat.hasUnseen ? "#fee2e2" : queryStat.hasOpenQueries ? "#fef3c7" : "#dcfce7",
-                      border: `1px solid ${queryStat.hasUnseen ? "#ef4444" : queryStat.hasOpenQueries ? "#f59e0b" : "#22c55e"}`,
-                      color: queryStat.hasUnseen ? "#b91c1c" : queryStat.hasOpenQueries ? "#b45309" : "#15803d",
-                    }}
-                    onClick={(e) => { e.stopPropagation(); handleOpenQueryChat(row); }}
-                  >
-                    {queryStat.hasUnseen ? "● New Message" : queryStat.hasOpenQueries ? "Open Query" : "Resolved"}
-                  </span>
-                )}
               </div>
             </div>
           );
@@ -495,37 +425,35 @@ function useJobColumns(
           }
 
           return (
-            <>
-              <span>
-                <strong>Importer: </strong>
-                {importer}
-              </span>
-
+            <div className="jc-imp">
+              <div className="jc-imp-name">{importer}</div>
               <Tooltip title="Supplier/Exporter" arrow>
-                <div style={{ marginTop: "5px" }}>
-                  <strong>Exporter: </strong>
+                <div className="jc-imp-ex">
+                  <span className="jc-dim">Exporter · </span>
                   {supplier_exporter}
                 </div>
               </Tooltip>
-
-              <Tooltip title="FTA Benefit" arrow>
-                <div
-                  style={{ marginTop: "5px", fontWeight: "bold" }}
-                >{`FTA Benefit: ${ftaDisplay}`}</div>
-              </Tooltip>
-              <Tooltip title="Hss" arrow>
-                <span style={{ marginTop: "5px" }}>{`Hss: ${hssDisplay}`}</span>
-              </Tooltip>
-              <span style={{ marginTop: "5px" }}>
-                <strong>AD Code: </strong> {adCode ? adCode : "NA"}
-              </span>
-              {RMS && (
-                <span style={{ marginTop: "5px", display: "inline-block" }}>
-                  <strong>RMS: </strong>
-                  {RMS}
-                </span>
-              )}
-            </>
+              <dl className="jc-kv">
+                <dt>FTA Benefit</dt>
+                <dd>
+                  <span className={`jc-yn${hasFTABenefit ? " jc-yn--yes" : ""}`}>{ftaDisplay}</span>
+                </dd>
+                <dt>HSS</dt>
+                <dd>
+                  <span className={`jc-yn${hasHss ? " jc-yn--yes" : ""}`}>{hssDisplay}</span>
+                </dd>
+                <dt>AD Code</dt>
+                <dd className="jc-mono">{adCode ? adCode : "NA"}</dd>
+                {RMS && (
+                  <>
+                    <dt>RMS</dt>
+                    <dd>
+                      <span className="jc-yn jc-yn--warn">{RMS}</span>
+                    </dd>
+                  </>
+                )}
+              </dl>
+            </div>
           );
         },
       },
@@ -555,8 +483,9 @@ function useJobColumns(
             );
           }
 
+          const cleanPort = (v) => (v ? v.replace(/\(.*?\)\s*/, "") : "") || "N/A";
           return (
-            <>
+            <div className="jc-bl">
               <BLTrackingCell
                 blNumber={cell?.getValue()?.toString() || ""}
                 hblNumber={row?.original?.hawb_hbl_no?.toString() || ""}
@@ -574,30 +503,29 @@ function useJobColumns(
                 selectedYear={selectedYear}
               />
 
-              {/* REST OF YOUR CUSTOM CONTENT */}
-              <div>
-                <strong> {row?.original?.shipping_line_airline} </strong>
+              <div className="jc-line">{row?.original?.shipping_line_airline}</div>
+              <div className="jc-wt">
                 <div>
-                  <strong>
-                    Gross(KGS): {row?.original?.gross_weight || "N/A"}{" "}
-                  </strong>
+                  <span className="jc-k">Gross (KGS)</span>
+                  <b>{row?.original?.gross_weight || "N/A"}</b>
                 </div>
                 <div>
-                  <strong>
-                    Net(KGS): {row?.original?.job_net_weight || "N/A"}
-                  </strong>
-                </div>
-                <div>
-                  <strong>LO :</strong>{" "}
-                  {row?.original?.loading_port?.replace(/\(.*?\)\s*/, "") ||
-                    "N/A"}{" "}
-                  <br />
-                  <strong>POD :</strong>{" "}
-                  {row?.original?.port_of_reporting?.replace(/\(.*?\)\s*/, "") ||
-                    "N/A"}
+                  <span className="jc-k">Net (KGS)</span>
+                  <b>{row?.original?.job_net_weight || "N/A"}</b>
                 </div>
               </div>
-            </>
+              <div className="jc-route">
+                <div>
+                  <span className="jc-k">LO</span>
+                  <b>{cleanPort(row?.original?.loading_port)}</b>
+                </div>
+                <span className="jc-route-line" />
+                <div className="jc-route-end">
+                  <span className="jc-k">POD</span>
+                  <b>{cleanPort(row?.original?.port_of_reporting)}</b>
+                </div>
+              </div>
+            </div>
           );
         },
       },
@@ -661,7 +589,12 @@ function useJobColumns(
             );
           }
 
-          return <BENumberCell cell={cell} copyFn={handleCopy} />;
+          return (
+            <div className="jc-be">
+              <span className="jc-k">BE number</span>
+              <BENumberCell cell={cell} copyFn={handleCopy} compact />
+            </div>
+          );
         },
       },
       {
@@ -687,7 +620,16 @@ function useJobColumns(
             );
           }
 
-          return <ContainerCellContent cell={cell} handleCopy={handleCopy} />;
+          return (
+            <div className="jc-ctr-wrap">
+              <span className="jc-k">
+                {isAirMode(row.original.mode) ? "Packages" : "Containers"} · {row.original.container_nos?.length || 0}
+              </span>
+              <div className="jc-ctr">
+                <ContainerCellContent cell={cell} handleCopy={handleCopy} compact />
+              </div>
+            </div>
+          );
         },
       },
 
@@ -729,96 +671,63 @@ function useJobColumns(
             );
           }
 
+          const dateLine = (label, value) => (
+            <li className={value ? "ok" : "none"}>
+              <b>{value ? `${label}: ${value}` : `No ${label}`}</b>
+            </li>
+          );
           return (
-            <div style={{ textAlign: "left" }}>
-              {/* First: Show OBL received status if available */}
-              {isOblRecieved && (
-                <div style={{ marginBottom: "5px" }}>
-                  <span style={{ color: "green", fontWeight: "bold" }}>
-                    OBL received by DO team
-                  </span>
-                  {formattedOblRecievedDate && (
-                    <div style={{ fontSize: "12px", color: "#666" }}>
-                      Date: {formattedOblRecievedDate}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Second: Show DO document sent status if available */}
-              {isDoDocRecieved && (
-                <div style={{ marginBottom: "5px" }}>
-                  <span style={{ color: "blue", fontWeight: "bold" }}>
-                    DO document sent to shipping line
-                  </span>
-                  {formattedDoDocRecievedDate && (
-                    <div style={{ fontSize: "12px", color: "#666" }}>
-                      Date: {formattedDoDocRecievedDate}
-                    </div>
-                  )}
-                </div>
-              )}
-              {/* Second: Show DO document sent status if available */}
-              {is_og_doc_recieved && (
-                <div style={{ marginBottom: "5px" }}>
-                  <span style={{ color: "blue", fontWeight: "bold" }}>
-                    OG document Recieved By Do Team
-                  </span>
-                  {formattedOgDocRecievedDate && (
-                    <div style={{ fontSize: "12px", color: "#666" }}>
-                      Date: {formattedOgDocRecievedDate}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Rest of the content in current order */}
-              <div>
-                {doCompleted ? (
-                  <strong>DO Completed Date: {doCompleted}</strong>
-                ) : (
-                  <span style={{ color: "gray" }}>No DO Completed Date</span>
+            <div className="jc-do">
+              <ul className="jc-tl">
+                {/* OBL received status */}
+                {isOblRecieved && (
+                  <li className="ok">
+                    <b>OBL received by DO team</b>
+                    {formattedOblRecievedDate && <span>Date: {formattedOblRecievedDate}</span>}
+                  </li>
                 )}
-              </div>
-
-              <div>
-                {doValidity ? (
-                  <strong>DO Validity: {doValidity}</strong>
-                ) : (
-                  <span style={{ color: "gray" }}>No DO Validity</span>
+                {/* DO document sent status */}
+                {isDoDocRecieved && (
+                  <li className="info">
+                    <b>DO document sent to shipping line</b>
+                    {formattedDoDocRecievedDate && <span>Date: {formattedDoDocRecievedDate}</span>}
+                  </li>
                 )}
-              </div>
+                {is_og_doc_recieved && (
+                  <li className="info">
+                    <b>OG document Recieved By Do Team</b>
+                    {formattedOgDocRecievedDate && <span>Date: {formattedOgDocRecievedDate}</span>}
+                  </li>
+                )}
+                {dateLine("DO Completed Date", doCompleted)}
+                {dateLine("DO Validity", doValidity)}
+              </ul>
 
               {Array.isArray(doCopies) && doCopies.length > 0 ? (
-                <div style={{ marginTop: "4px" }}>
+                <div className="jc-chiprow">
                   {doCopies.map((url, index) => (
-                    <div key={index}>
-                      <a
-                        href={url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                          color: "#007bff",
-                          textDecoration: "underline",
-                        }}
-                      >
-                        DO Copy {index + 1}
-                      </a>
-                    </div>
+                    <a
+                      key={index}
+                      className="jc-doc-link"
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      DO Copy {index + 1}
+                    </a>
                   ))}
                 </div>
               ) : (
-                <div style={{ marginBottom: "5px" }}>
-                  <span style={{ color: "gray" }}>No DO copies</span>
-                </div>
+                <div className="jc-empty">No DO copies</div>
               )}
               {!isAirMode(row.original?.mode) && (
-                <div>
-                  <strong>EmptyOff LOC:</strong> {do_list}
+                <div className="jc-eo">
+                  <span className="jc-k">EmptyOff LOC</span>
+                  <b>{do_list || "—"}</b>
                 </div>
               )}
 
-              <div style={{ marginTop: "8px" }}>
+              <div className="jc-inv">
                 <InvoiceDisplay row={row.original} showOOC={false} showCTH={false} />
               </div>
             </div>
@@ -846,82 +755,7 @@ function useJobColumns(
             );
           }
 
-          return (
-            <div style={{ textAlign: "left" }}>
-              {validDocuments.length > 0 ? (
-                validDocuments.map((doc, index) => (
-                  <div
-                    key={index}
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "flex-start",
-                      margin: 0,
-                      padding: 0,
-                      gap: 0,
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 6,
-                        margin: 0,
-                        padding: 0,
-                      }}
-                    >
-                      <a
-                        href={doc.url?.[0] || "#"}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                          textDecoration: "none",
-                          color: "#007bff",
-                          display: "inline-block",
-                          margin: 0,
-                          padding: 0,
-                        }}
-                      >
-                        {`${doc.document_name} - ${doc.irn}`}
-                      </a>
-
-                      {/* Copy IRN button; stop propagation to avoid opening the link */}
-                      <IconButton
-                        size="small"
-                        onClick={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          if (doc.irn) handleCopy(event, doc.irn);
-                        }}
-                        aria-label={`Copy IRN ${doc.irn}`}
-                        style={{ padding: 4 }}
-                      >
-                        <abbr title={`Copy IRN`}>
-                          <ContentCopyIcon fontSize="inherit" />
-                        </abbr>
-                      </IconButton>
-                    </div>
-
-                    <div
-                      style={{
-                        fontSize: "12px",
-                        color: "#555",
-                        margin: 0,
-                        padding: 0,
-                      }}
-                    >
-                      {/* Display the checked date */}
-                      {new Date(doc.document_check_date).toLocaleDateString()}
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div style={{ margin: 0, padding: 0 }}>
-                  No Documents Available
-                </div>
-              )}
-            </div>
-          );
+          return <EsanchitDocs documents={validDocuments} handleCopy={handleCopy} />;
         },
       },
     ],

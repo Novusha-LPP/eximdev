@@ -411,7 +411,7 @@ function JobDetailsStaticData(props) {
   };
 
   return (
-    <div className="job-details-container" style={{ padding: "0px", background: "white", borderRadius: "8px", border: "1px solid #e0e0e0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)", transition: "all 0.3s ease" }}>
+    <div className="job-details-container jd-head" style={{ padding: "0px", background: "white", borderRadius: "8px", border: "1px solid #e0e0e0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)", transition: "all 0.3s ease" }}>
 
       {/* Collapsed View (Summary) */}
       {!expanded && (

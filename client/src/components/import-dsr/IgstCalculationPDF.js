@@ -3,7 +3,7 @@ import jsPDF from "jspdf";
 import "jspdf-autotable";
 import axios from 'axios';
 import { IconButton, Button, Box } from '@mui/material';
-import DownloadIcon from '@mui/icons-material/Download';
+import DownloadIcon from '@mui/icons-material/FileDownloadOutlined';
 
 const IgstCalculationPDF = ({ year, jobNo, branch_code, trade_type, mode, containerIndex = 0, renderAsIcon = false }) => {
   
@@ -245,7 +245,7 @@ const IgstCalculationPDF = ({ year, jobNo, branch_code, trade_type, mode, contai
           }}
         >
           <abbr title="Download IGST Calculation">
-            <DownloadIcon fontSize="inherit" />
+            <DownloadIcon fontSize="inherit" className="ic-igst" />
           </abbr>
         </IconButton>
       ) : (

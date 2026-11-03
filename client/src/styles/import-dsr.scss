@@ -33,3 +33,159 @@
 .bg-green {
   background-color: green;
 }
+
+/* =====================================================================
+   Dashboard and New Job: same quiet look as the job list and job page
+   (Inter, white cards, one blue accent, colour only where it means something)
+   ===================================================================== */
+.dsr-dash {
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  .MuiInputBase-root, .MuiInputLabel-root, .MuiAutocomplete-option, .MuiTypography-root { font-family: inherit; }
+  .MuiOutlinedInput-root { border-radius: 10px; background: #fff; font-size: 13.5px; }
+  .MuiOutlinedInput-notchedOutline { border-color: #cfd6e3; }
+}
+.dsr-kpis.jobs-overview {
+  margin: 0 -6px 6px;
+  .jobs-overview-item { padding: 0 6px; }
+  .jobs-overview-item-inner.kpi {
+    --k: #2563eb;
+    gap: 14px;
+    margin: 0 0 12px;
+    padding: 16px 18px;
+    border: 1px solid #e4e8f0;
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+    .MuiIconButton-root {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: color-mix(in srgb, var(--k) 10%, #fff);
+      color: var(--k);
+      pointer-events: none;
+      svg { font-size: 22px; color: var(--k) !important; }
+    }
+    p {
+      margin: 0;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: #8793a8;
+    }
+    h3 {
+      margin: 2px 0 0;
+      font-family: "Plus Jakarta Sans", "Inter", sans-serif;
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: #0f172a;
+      font-feature-settings: "tnum" 1;
+    }
+  }
+  .jobs-overview-item-inner.kpi--total { --k: #2563eb; }
+  .jobs-overview-item-inner.kpi--pending { --k: #d97706; }
+  .jobs-overview-item-inner.kpi--done { --k: #16a34a; }
+  .jobs-overview-item-inner.kpi--cancel { --k: #64748b; }
+}
+.dsr-dash .jobs-overview-item-inner.dsr-card {
+  margin: 0 !important;
+  padding: 18px 20px;
+  border: 1px solid #e4e8f0;
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  gap: 10px;
+  .apexcharts-legend-text { font-size: 13px !important; color: #334155 !important; font-family: inherit !important; }
+}
+.dsr-handling {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+  span { color: #8793a8; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; margin-right: 6px; }
+}
+
+/* New Job */
+.nj-shell {
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  .MuiTypography-root, .MuiInputBase-root, .MuiInputLabel-root, .MuiButton-root, .MuiStepLabel-label,
+  .MuiFormControlLabel-label, .MuiMenuItem-root, button, input, select, textarea { font-family: inherit; }
+  .MuiTypography-h4 { font-family: "Plus Jakarta Sans", "Inter", sans-serif; }
+  .MuiCard-root .MuiTypography-subtitle1 { font-family: "Plus Jakarta Sans", "Inter", sans-serif; }
+  /* black action buttons become the accent, or quiet outlines for repeated uploads */
+  .MuiButton-contained:not(.Mui-disabled) {
+    background: #2563eb !important;
+    color: #fff !important;
+    border-radius: 9px !important;
+    text-transform: none !important;
+    font-weight: 700 !important;
+    box-shadow: 0 6px 12px -6px #2563eb !important;
+    &:hover { background: #1d4ed8 !important; }
+  }
+  .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline,
+  .MuiOutlinedInput-root.Mui-focused fieldset { border-color: #2563eb !important; }
+  .MuiOutlinedInput-root.Mui-focused { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15); }
+  .MuiStepIcon-root.Mui-active, .MuiStepIcon-root.Mui-completed { color: #2563eb; }
+}
+
+/* Importer-wise jobs + Handling by */
+.dsr-dash-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr));
+  gap: 16px;
+  margin-top: 4px;
+}
+.dsr-panel {
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid #e4e8f0;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+.dsr-panel__head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.dsr-panel__title {
+  margin: 0 0 16px;
+  font-family: "Plus Jakarta Sans", "Inter", sans-serif;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #0f172a;
+}
+.dsr-panel__meta { font-size: 12.5px; color: #64748b; }
+.dsr-panel__label { display: block; margin-bottom: 6px; font-size: 12.5px; font-weight: 600; color: #475569; }
+.dsr-panel__empty { margin: 0; color: #8793a8; font-size: 13px; }
+.dsr-importer {
+  max-width: 420px;
+  .MuiOutlinedInput-root { min-height: 40px; border-radius: 10px; font-weight: 700; font-size: 13px; }
+}
+.dsr-ring { display: flex; align-items: center; flex-wrap: wrap; gap: 28px 40px; margin-top: 22px; }
+.dsr-ring__chart { position: relative; width: 190px; height: 190px; flex: none; }
+.dsr-ring__center {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  pointer-events: none;
+  b { font-family: "Plus Jakarta Sans", "Inter", sans-serif; font-size: 32px; font-weight: 800; line-height: 1; color: #0f172a; }
+  span { margin-top: 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #64748b; }
+}
+.dsr-ring__legend {
+  list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; min-width: 190px;
+  li { display: grid; grid-template-columns: 10px 1fr auto; align-items: center; gap: 12px; font-size: 13.5px; font-weight: 600; color: #0f172a; }
+  i { width: 9px; height: 9px; border-radius: 50%; }
+  b { font-weight: 800; font-feature-settings: "tnum" 1; min-width: 32px; text-align: right; }
+}
+.dsr-people { display: flex; flex-wrap: wrap; gap: 8px; }
+.dsr-person {
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 30px; padding: 0 12px 0 4px;
+  border: 1px solid #e4e8f0; border-radius: 99px; background: #fff;
+  font-family: inherit; font-size: 12.5px; font-weight: 700; color: #0f172a; text-transform: uppercase;
+  i {
+    display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%;
+    color: #fff; font-style: normal; font-size: 9.5px; font-weight: 800; letter-spacing: 0.02em;
+  }
+  &--more {
+    padding: 0 12px; background: #eef3ff; border-color: #cddcff; color: #1d4ed8; text-transform: none; cursor: pointer;
+    &:hover { background: #dfe9ff; }
+  }
+}

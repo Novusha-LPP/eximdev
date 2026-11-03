@@ -23,11 +23,19 @@ import axios from "axios";
 import toast from "react-hot-toast";
 import "../../styles/job-details.scss";
 import useFetchJobDetails from "../../customHooks/useFetchJobDetails";
+import "../../styles/job-detail.scss";
+import ChoiceSelect from "./ChoiceSelect";
+import TaskAltOutlinedIcon from "@mui/icons-material/TaskAltOutlined";
+import AnchorOutlinedIcon from "@mui/icons-material/AnchorOutlined";
+import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
+import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
+import LocalShippingOutlinedIcon from "@mui/icons-material/LocalShippingOutlined";
+import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
+import PaymentsOutlinedIcon from "@mui/icons-material/PaymentsOutlined";
 import Checkbox from "@mui/material/Checkbox";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import Snackbar from "@mui/material/Snackbar";
 import Radio from "@mui/material/Radio";
-import RadioGroup from "@mui/material/RadioGroup";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import FormControl from "@mui/material/FormControl";
 import FormLabel from "@mui/material/FormLabel";
@@ -2697,7 +2705,7 @@ function JobDetails() {
   return (
     <>
       {data !== null && (
-        <form onSubmit={formik.handleSubmit}>
+        <form className={`jd-shell jd-tab-${viewJobTab}`} onSubmit={formik.handleSubmit}>
           {/* Below laptop width these buttons sit above the header instead of floating over it */}
           <Box sx={{ display: { xs: "flex", md: "block" }, flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-start", gap: 1, mt: { xs: 1, md: 0 } }}>
           <Box sx={{ position: { xs: "static", md: "fixed" }, top: 80, left: 80, zIndex: 999 }}>
@@ -2793,18 +2801,29 @@ function JobDetails() {
             {queriesPanel}
           </div>
 
-          <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2, bgcolor: "white", borderRadius: 1 }}>
-            <Tabs value={viewJobTab} onChange={handleViewJobTabChange} aria-label="job details tabs"
+          <Box className="jd-tabbar">
+            <Tabs className="jd-tabs" value={viewJobTab} onChange={handleViewJobTabChange} aria-label="job details tabs"
               variant="scrollable" scrollButtons="auto"
-              sx={{ "& .MuiTab-root": { textTransform: "none", fontWeight: 600, fontSize: "1rem" } }}
             >
-              <Tab label="Completion Status" />
-              <Tab label="Tracking Status" />
-              <Tab label="Invoice Details" />
-              <Tab label="Product Details" />
-              <Tab label={getContainerOrPackageLabel(data?.mode)} />
-              <Tab label="Documents" />
-              <Tab label="Charges" />
+              <Tab className="jd-tab jd-tab--0" icon={<TaskAltOutlinedIcon />} iconPosition="start" label="Completion Status" />
+              <Tab className="jd-tab jd-tab--1" icon={<AnchorOutlinedIcon />} iconPosition="start" label="Tracking Status" />
+              <Tab className="jd-tab jd-tab--2" icon={<ReceiptLongOutlinedIcon />} iconPosition="start" label="Invoice Details" />
+              <Tab className="jd-tab jd-tab--3" icon={<Inventory2OutlinedIcon />} iconPosition="start" label="Product Details" />
+              <Tab
+                className="jd-tab jd-tab--4"
+                icon={<LocalShippingOutlinedIcon />}
+                iconPosition="start"
+                label={
+                  <span className="jd-tab-label">
+                    {getContainerOrPackageLabel(data?.mode)}
+                    {(formik.values.container_nos?.length || 0) > 0 && (
+                      <span className="jd-tab-count">{formik.values.container_nos.length}</span>
+                    )}
+                  </span>
+                }
+              />
+              <Tab className="jd-tab jd-tab--5" icon={<DescriptionOutlinedIcon />} iconPosition="start" label="Documents" />
+              <Tab className="jd-tab jd-tab--6" icon={<PaymentsOutlinedIcon />} iconPosition="start" label="Charges" />
             </Tabs>
           </Box>
 
@@ -2812,13 +2831,36 @@ function JobDetails() {
             <>
               {/* completion status start*/}
               <div className="job-details-container">
-                <JobDetailsRowHeading heading="Completion Status" />
+                <JobDetailsRowHeading
+                  heading="Completion Status"
+                  rightContent={(() => {
+                    const stages = [
+                      formik.values.documentation_completed_date_time,
+                      formik.values.esanchit_completed_date_time,
+                      formik.values.submission_completed_date_time,
+                      formik.values.do_completed,
+                      formik.values.completed_operation_date,
+                      formik.values.delivery_completed_date || deliveryCompletedDate,
+                      formik.values.bill_document_sent_to_accounts,
+                      formik.values.billing_confirmation_date,
+                    ];
+                    const done = stages.filter(Boolean).length;
+                    return (
+                      <div className="jd-progress">
+                        <span>
+                          <b>{done}</b> of {stages.length} stages complete
+                        </span>
+                        <i style={{ "--p": `${(done / stages.length) * 100}%` }} />
+                      </div>
+                    );
+                  })()}
+                />
 
                 <Row>
                   {/* Left Column: Completion Stages (Grid) */}
                   <Col lg={9}>
                     <Row>
-                      <Col xs={12} md={6} lg={3} className="pb-3">
+                      <Col xs={12} md={6} lg={3} className="pb-3 jd-stage-col">
                         <div
                           style={{
                             fontSize: "0.95rem",
@@ -2829,7 +2871,7 @@ function JobDetails() {
                           }}
                         >
                           <span style={{ fontWeight: "600", color: "#495057" }}>
-                            Documentation:
+                            Documentation
                           </span>
                           <span
                             style={{
@@ -2878,7 +2920,7 @@ function JobDetails() {
                         )}
                       </Col>
 
-                      <Col xs={12} md={6} lg={3} className="pb-3">
+                      <Col xs={12} md={6} lg={3} className="pb-3 jd-stage-col">
                         <div
                           style={{
                             fontSize: "0.95rem",
@@ -2889,7 +2931,7 @@ function JobDetails() {
                           }}
                         >
                           <span style={{ fontWeight: "600", color: "#495057" }}>
-                            E-Sanchit:
+                            E-Sanchit
                           </span>
                           <span
                             style={{
@@ -2936,7 +2978,7 @@ function JobDetails() {
                         )}
                       </Col>
 
-                      <Col xs={12} md={6} lg={3} className="pb-3">
+                      <Col xs={12} md={6} lg={3} className="pb-3 jd-stage-col">
                         <div
                           style={{
                             fontSize: "0.95rem",
@@ -2947,7 +2989,7 @@ function JobDetails() {
                           }}
                         >
                           <span style={{ fontWeight: "600", color: "#495057" }}>
-                            Submission:
+                            Submission
                           </span>
                           <span
                             style={{
@@ -2994,7 +3036,7 @@ function JobDetails() {
                         )}
                       </Col>
 
-                      <Col xs={12} md={6} lg={3} className="pb-3">
+                      <Col xs={12} md={6} lg={3} className="pb-3 jd-stage-col">
                         <div
                           style={{
                             fontSize: "0.95rem",
@@ -3005,7 +3047,7 @@ function JobDetails() {
                           }}
                         >
                           <span style={{ fontWeight: "600", color: "#495057" }}>
-                            DO:
+                            DO
                           </span>
                           <span
                             style={{
@@ -3054,7 +3096,7 @@ function JobDetails() {
                         )}
                       </Col>
 
-                      <Col xs={12} md={6} lg={3} className="pb-3">
+                      <Col xs={12} md={6} lg={3} className="pb-3 jd-stage-col">
                         <div
                           style={{
                             fontSize: "0.95rem",
@@ -3065,7 +3107,7 @@ function JobDetails() {
                           }}
                         >
                           <span style={{ fontWeight: "600", color: "#495057" }}>
-                            Operation Completed:
+                            Operation Completed
                           </span>
                           <span
                             style={{
@@ -3112,7 +3154,7 @@ function JobDetails() {
                         )}
                       </Col>
 
-                      <Col xs={12} md={6} lg={3} className="pb-3">
+                      <Col xs={12} md={6} lg={3} className="pb-3 jd-stage-col">
                         <div
                           style={{
                             fontSize: "0.95rem",
@@ -3123,7 +3165,7 @@ function JobDetails() {
                           }}
                         >
                           <span style={{ fontWeight: "600", color: "#495057" }}>
-                            Delivery Completed:
+                            Delivery Completed
                           </span>
                           <span
                             style={{
@@ -3178,7 +3220,7 @@ function JobDetails() {
                         )}
                       </Col>
 
-                      <Col xs={12} md={6} lg={3} className="pb-3">
+                      <Col xs={12} md={6} lg={3} className="pb-3 jd-stage-col">
                         <div
                           style={{
                             fontSize: "0.95rem",
@@ -3189,7 +3231,7 @@ function JobDetails() {
                           }}
                         >
                           <span style={{ fontWeight: "600", color: "#495057" }}>
-                            DO Sent to Billing:
+                            DO Sent to Billing
                           </span>
                           <span
                             style={{
@@ -3242,7 +3284,7 @@ function JobDetails() {
                         )}
                       </Col>
 
-                      <Col xs={12} md={6} lg={3} className="pb-3">
+                      <Col xs={12} md={6} lg={3} className="pb-3 jd-stage-col">
                         <div
                           style={{
                             display: "flex",
@@ -3266,7 +3308,7 @@ function JobDetails() {
                             }}
                           />
                           <span style={{ fontWeight: "600", color: "#495057" }}>
-                            Confirm for Billing:
+                            Confirm for Billing
                           </span>
                           <span
                             style={{
@@ -3319,7 +3361,7 @@ function JobDetails() {
                         )}
                       </Col>
 
-                      <Col xs={12} md={6} lg={3} className="pb-3">
+                      <Col xs={12} md={6} lg={3} className="pb-3 jd-stage-col">
                         <div style={{ fontSize: "0.95rem", marginBottom: "6px" }}>
                           <span
                             style={{
@@ -3348,7 +3390,7 @@ function JobDetails() {
                         </TextField>
                       </Col>
 
-                      <Col xs={12} md={6} lg={3} className="pb-3">
+                      <Col xs={12} md={6} lg={3} className="pb-3 jd-stage-col">
                         <div style={{ fontSize: "0.95rem", marginBottom: "6px" }}>
                           <span
                             style={{
@@ -3414,7 +3456,7 @@ function JobDetails() {
                   </Col>
 
                   {/* Right Column: Billing Details (Vertical Stack) */}
-                  <Col lg={3} style={{ borderLeft: '1px solid #dee2e6', paddingLeft: '20px' }}>
+                  <Col lg={3} className="jd-bill-col" style={{ borderLeft: '1px solid #dee2e6', paddingLeft: '20px' }}>
                     <div className="mb-3">
                       <div
                         style={{
@@ -3570,11 +3612,11 @@ function JobDetails() {
                       <DocRequestCheckbox job={data} />
                       <div style={{ display: "flex", alignItems: "center" }}>
                         <div style={{ marginRight: '10px', fontWeight: '600', fontSize: '1rem', color: '#6c757d' }}>Priority:</div>
-                        <RadioGroup row name="priorityJob" value={formik.values.priorityJob || ""} onChange={formik.handleChange} >
+                        <ChoiceSelect name="priorityJob" value={formik.values.priorityJob || ""} onChange={formik.handleChange} >
                           <FormControlLabel value="normal" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} style={{ color: 'green' }} />} label={<span style={{ fontSize: '1rem' }}>Normal</span>} />
                           <FormControlLabel value="Priority" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} style={{ color: 'orange' }} />} label={<span style={{ fontSize: '1rem' }}>Priority</span>} />
                           <FormControlLabel value="High Priority" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} style={{ color: 'red' }} />} label={<span style={{ fontSize: '1rem' }}>High</span>} />
-                        </RadioGroup>
+                        </ChoiceSelect>
                       </div>
                     </div>
                   }
@@ -3940,13 +3982,13 @@ function JobDetails() {
                     </Col>
                     <Col xs={12} md={6} lg={4} className="mb-3 d-flex align-items-center">
                       <div style={{ marginRight: '10px', fontWeight: '600', fontSize: '1rem', color: '#6c757d' }}>BOE Filing:</div>
-                      <RadioGroup row name="be_filing_type" value={formik.values.be_filing_type || ""} onChange={formik.handleChange}
+                      <ChoiceSelect name="be_filing_type" value={formik.values.be_filing_type || ""} onChange={formik.handleChange}
                         disabled={user?.role !== "Admin" && isSubmissionDate}>
                         <FormControlLabel value="Discharge" control={<Radio size="small" />} label={<span style={{ fontSize: '1rem' }}>Discharge</span>} />
                         <FormControlLabel value="Railout" control={<Radio size="small" />} label={<span style={{ fontSize: '1rem' }}>Railout</span>} />
                         <FormControlLabel value="Advanced" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} />} label={<span style={{ fontSize: '1rem' }}>Advanced</span>} />
                         <FormControlLabel value="Prior" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} />} label={<span style={{ fontSize: '1rem' }}>Prior</span>} />
-                      </RadioGroup>
+                      </ChoiceSelect>
                     </Col>
                   </Row>
                 </div>
@@ -4124,13 +4166,13 @@ function JobDetails() {
                   <Row>
                     <Col xs={12} md={6} className="mb-3">
                       <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>O{getAwbOrBlLabel(data?.mode).charAt(0)}BL / Document Status</label>
-                      <RadioGroup row name="radio-buttons-group" value={formik.values.obl_telex_bl} onChange={handleBlStatusChange}>
+                      <ChoiceSelect name="radio-buttons-group" value={formik.values.obl_telex_bl} onChange={handleBlStatusChange}>
                         <FormControlLabel value="OBL" control={<Radio checked={formik.values.obl_telex_bl === "OBL"} size="small" />} label={<span style={{ fontSize: '1rem' }}>Original</span>} />
                         <FormControlLabel value="Telex" control={<Radio checked={formik.values.obl_telex_bl === "Telex"} size="small" />} label={<span style={{ fontSize: '1rem' }}>Telex</span>} />
                         <FormControlLabel value="Surrender BL" control={<Radio checked={formik.values.obl_telex_bl === "Surrender BL"} size="small" />} label={<span style={{ fontSize: '1rem' }}>Surrender</span>} />
                         <FormControlLabel value="Waybill" control={<Radio checked={formik.values.obl_telex_bl === "Waybill"} size="small" />} label={<span style={{ fontSize: '1rem' }}>Waybill</span>} />
                         <FormControlLabel value="clear" control={<Radio size="small" />} label={<span style={{ fontSize: '1rem' }}>Clear</span>} />
-                      </RadioGroup>
+                      </ChoiceSelect>
 
                       {user.role === "Admin" && (
                         <div className="mt-2">
@@ -4155,13 +4197,13 @@ function JobDetails() {
                         }} />
                         <span style={{ fontSize: "1rem", fontWeight: "600" }}>DO Planning Active</span>
                       </div>
-                      <RadioGroup row name="type_of_Do" value={formik.values.type_of_Do} onChange={(e) => {
+                      <ChoiceSelect name="type_of_Do" value={formik.values.type_of_Do} onChange={(e) => {
                         const val = e.target.value; formik.setFieldValue("type_of_Do", val === "Clear" ? "" : val);
                       }}>
                         <FormControlLabel value="ICD" control={<Radio style={{ color: formik.values.type_of_Do === "ICD" ? "green" : "inherit" }} size="small" />} label={<span style={{ fontSize: '1rem' }}>ICD</span>} />
                         <FormControlLabel value="Factory" control={<Radio style={{ color: formik.values.type_of_Do === "Factory" ? "green" : "inherit" }} size="small" />} label={<span style={{ fontSize: '1rem' }}>Factory</span>} />
                         <FormControlLabel value="Clear" control={<Radio style={{ color: formik.values.type_of_Do === "Clear" ? "red" : "inherit" }} size="small" />} label={<span style={{ fontSize: '1rem' }}>Clear</span>} />
-                      </RadioGroup>
+                      </ChoiceSelect>
 
                       {user.role === "Admin" && (
                         <div className="mt-2">
@@ -4394,10 +4436,10 @@ function JobDetails() {
                     </Col>
                     <Col xs={12} lg={4} className="mb-3 d-flex align-items-center" style={{ paddingTop: '22px' }}>
                       <div style={{ marginRight: "8px", fontWeight: "600", fontSize: "0.9rem", color: "#6c757d" }}>Payment:</div>
-                      <RadioGroup row name="payment_method" value={formik.values.payment_method || ""} onChange={formik.handleChange}>
+                      <ChoiceSelect name="payment_method" value={formik.values.payment_method || ""} onChange={formik.handleChange}>
                         <FormControlLabel value="Transaction" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} />} label={<span style={{ fontSize: "0.9rem" }}>Transaction</span>} />
                         <FormControlLabel value="Deferred" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} />} label={<span style={{ fontSize: "0.9rem" }}>Deferred</span>} />
-                      </RadioGroup>
+                      </ChoiceSelect>
                     </Col>
                   </Row>
 

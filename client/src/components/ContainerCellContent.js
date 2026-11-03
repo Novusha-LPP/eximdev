@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { IconButton, Tooltip } from "@mui/material";
-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faAnchor } from "@fortawesome/free-solid-svg-icons";
+import ContentCopyIcon from "@mui/icons-material/ContentCopyOutlined";
+import AnchorOutlinedIcon from "@mui/icons-material/AnchorOutlined";
+import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import ContainerTrackDialog from "./ContainerTrackDialog";
 import DeliveryChallanPdf from "./import-dsr/DeliveryChallanPDF.js";
 import IgstCalculationPDF from "./import-dsr/IgstCalculationPDF.js";
@@ -28,9 +28,13 @@ const getShortageText = (shortage) => {
   }
 };
 
-const ContainerCellContent = ({ cell, handleCopy }) => {
+const CONTAINER_PREVIEW = 4;
+
+const ContainerCellContent = ({ cell, handleCopy, compact = false }) => {
   const [containerTrackOpen, setContainerTrackOpen] = useState(false);
   const [containerTrackContainers, setContainerTrackContainers] = useState([]);
+  // job cards: the first few containers show, the rest open with "Show n more"
+  const [showAll, setShowAll] = useState(false);
 
   const containerNos = cell.row.original.container_nos;
   const jobData = cell.row.original;
@@ -43,6 +47,7 @@ const ContainerCellContent = ({ cell, handleCopy }) => {
         containers={containerTrackContainers}
       />
       {containerNos?.map((container, id) => {
+        if (compact && !showAll && id >= CONTAINER_PREVIEW) return null;
         const weightShortage = parseFloat(container.weight_shortage) || 0;
         const containerColor = getShortageColor(weightShortage);
         const tooltipText = getShortageText(weightShortage);
@@ -67,7 +72,8 @@ const ContainerCellContent = ({ cell, handleCopy }) => {
               </a>
             </Tooltip>
 
-            {!isAirMode(jobData?.mode) && container.size && <>| "{container.size}"</>}
+            {!isAirMode(jobData?.mode) && container.size &&
+              (compact ? <span className="cc-size">{container.size}</span> : <>| "{container.size}"</>)}
             {(() => {
               const customSeal = (container.seal_no || container.sealNo || container.custom_seal || container.customSeal || container.customSealNo || "").toString().trim();
               const lineOrSelf = (container.line_seal || container.lineSeal || container.shipping_line_seal || container.shippingLineSealNo || container.self_seal || container.selfSeal || "").toString().trim();
@@ -115,10 +121,7 @@ const ContainerCellContent = ({ cell, handleCopy }) => {
                     }}
                     style={{ padding: 0, marginLeft: 4, marginRight: 4 }}
                   >
-                    <FontAwesomeIcon
-                      icon={faAnchor}
-                      style={{ fontSize: 12, color: "#7c3aed" }}
-                    />
+                    <AnchorOutlinedIcon style={{ fontSize: 16, color: "#7c3aed" }} />
                   </IconButton>
                 </Tooltip>
               )}
@@ -156,6 +159,19 @@ const ContainerCellContent = ({ cell, handleCopy }) => {
           </div>
         );
       })}
+      {compact && containerNos?.length > CONTAINER_PREVIEW && (
+        <button
+          type="button"
+          className="jc-more"
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowAll((prev) => !prev);
+          }}
+        >
+          {showAll ? "Show less" : `Show ${containerNos.length - CONTAINER_PREVIEW} more`}
+          <KeyboardArrowDownIcon className={`jc-more__chev${showAll ? " is-open" : ""}`} fontSize="inherit" />
+        </button>
+      )}
     </React.Fragment>
   );
 };

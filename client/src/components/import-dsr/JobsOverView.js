@@ -50,11 +50,16 @@ function JobsOverView() {
   useEffect(() => {
     async function getData() {
       if (selectedYear) {
-        const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-jobs-overview/${selectedYear}`,
-          { params: { branchId: selectedBranch, category: selectedCategory } }
-        );
-        setData(res.data);
+        // a failed request must not crash the page (it showed as an "Uncaught runtime error")
+        try {
+          const res = await axios.get(
+            `${process.env.REACT_APP_API_STRING}/get-jobs-overview/${selectedYear}`,
+            { params: { branchId: selectedBranch, category: selectedCategory } }
+          );
+          setData(res.data);
+        } catch (error) {
+          console.error("Error fetching jobs overview:", error);
+        }
       }
     }
     getData();
@@ -81,9 +86,9 @@ function JobsOverView() {
         </TextField>
       </div>
 
-      <Row className="jobs-overview">
+      <Row className="jobs-overview dsr-kpis">
         <Col xs={3} className="jobs-overview-item">
-          <div className="jobs-overview-item-inner">
+          <div className="jobs-overview-item-inner kpi kpi--total">
             <IconButton aria-label="total-jobs">
               <DensitySmallIcon />
             </IconButton>
@@ -94,7 +99,7 @@ function JobsOverView() {
           </div>
         </Col>
         <Col xs={3} className="jobs-overview-item">
-          <div className="jobs-overview-item-inner">
+          <div className="jobs-overview-item-inner kpi kpi--pending">
             <IconButton aria-label="pending-jobs">
               <HourglassBottomIcon />
             </IconButton>
@@ -105,7 +110,7 @@ function JobsOverView() {
           </div>
         </Col>
         <Col xs={3} className="jobs-overview-item">
-          <div className="jobs-overview-item-inner">
+          <div className="jobs-overview-item-inner kpi kpi--done">
             <IconButton aria-label="completed-jobs">
               <CheckCircleOutlineIcon />
             </IconButton>
@@ -116,7 +121,7 @@ function JobsOverView() {
           </div>
         </Col>
         <Col xs={3} className="jobs-overview-item">
-          <div className="jobs-overview-item-inner">
+          <div className="jobs-overview-item-inner kpi kpi--cancel">
             <IconButton aria-label="cancelled-jobs">
               <DoDisturbIcon />
             </IconButton>

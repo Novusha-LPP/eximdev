@@ -1,11 +1,19 @@
 import React, { useState, useEffect, useCallback, useMemo, memo } from "react";
 import axios from "axios";
 import { TextField, MenuItem } from "@mui/material";
-import { FcCalendar } from "react-icons/fc";
+import CalendarMonthOutlinedIcon from "@mui/icons-material/CalendarMonthOutlined";
+
 import AddIcon from "@mui/icons-material/Add";
+import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import IgstModal from "./IgstModal";
 import { BranchContext } from "../../contexts/BranchContext";
 import { isAirMode } from "../../utils/modeLogic";
+
+// Outline calendar (same props the old coloured icon took)
+const FcCalendar = ({ title, style, ...rest }) => (
+  <CalendarMonthOutlinedIcon titleAccess={title} style={{ ...style, fontSize: style?.fontSize || 18, color: "#64748b" }} {...rest} />
+);
+
 
 // ---------- Date helpers ----------
 const isDateOnly = (s) =>
@@ -166,6 +174,10 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate, compact = false, showDoP
   const [tempDateValue, setTempDateValue] = useState("");
   const [dateError, setDateError] = useState("");
   const [igstModalOpen, setIgstModalOpen] = useState(false);
+  // job cards: with many containers only the first few dates show until "Show more" is used
+  const [showAllContainers, setShowAllContainers] = useState(false);
+  const CONTAINER_PREVIEW = 4;
+  const hideRest = compact && !showAllContainers && containers.length > CONTAINER_PREVIEW;
 
   // Rehydrate when parent row changes
   const dataKey = useMemo(() => {
@@ -437,9 +449,45 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate, compact = false, showDoP
   const isIgstFieldsAvailable = Boolean(assessable_ammount && igst_ammount);
 
   // -------------- UI --------------
+  // Job list cards (compact): each date is a tile and a bar counts how many of the shown dates are set
+  let tileTotal = 0;
+  let tileFilled = 0;
+  const countTile = (value) => {
+    tileTotal += 1;
+    const has = Boolean(value) && formatDateDisplay(value) !== "N/A";
+    if (has) tileFilled += 1;
+    return has;
+  };
+  const tileClass = (has) => (compact ? `ms-tile${has ? " ms-tile--done" : ""}` : undefined);
+  // Free time + detention under the dates: one tidy line on the job cards, the old stacked lines elsewhere
+  const showFreeTime = !isLCL && !isAirMode(mode);
+  const showDetention = !isLCL && !isExBond && !isAirMode(mode);
+  const freeTimeSelect = (sx) => (
+    <TextField
+      select
+      size="small"
+      variant="outlined"
+      value={localFreeTime || 0}
+      onChange={(e) => handleFreeTimeChange(e.target.value)}
+      sx={sx}
+    >
+      {options.map((n) => (
+        <MenuItem key={n} value={n}>
+          {n}
+        </MenuItem>
+      ))}
+    </TextField>
+  );
+  // Detention already running and the container not yet emptied: shown in red on the cards
+  const isDetentionLate = (c) =>
+    Boolean(c.detention_from) && !c.emptyContainerOffLoadDate && new Date(c.detention_from) <= new Date();
+
+  // Same wording as the old list: "ETA:", "Assessment Date:" ... (the colon is dropped on the cards, where the label sits on its own)
+  const tileLabel = (label) => (compact ? label : `${label}:`);
+
   const renderRowDateEditor = (label, value, fieldKey) => (
-    <div>
-      <strong>{label}:</strong> {formatDateDisplay(value)}{" "}
+    <div className={tileClass(countTile(value))} title={compact ? label : undefined}>
+      <strong>{tileLabel(label)}</strong> {formatDateDisplay(value)}{" "}
       <FcCalendar
         style={styles.icon}
         onClick={() => startEditBlank(fieldKey)}
@@ -447,7 +495,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate, compact = false, showDoP
         title="Click: edit • Double-click: clear"
       />
       {editable === fieldKey && (
-        <div>
+        <div className={compact ? "ms-editor" : undefined}>
           <input
             type="datetime-local"
             value={toInputDateTime(tempDateValue)}
@@ -480,8 +528,8 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate, compact = false, showDoP
     idx,
     guardDisabled = false
   ) => (
-    <div>
-      <strong>{label}:</strong> {formatDateDisplay(cValue)}{" "}
+    <div className={tileClass(countTile(cValue))} title={compact ? label : undefined}>
+      <strong>{tileLabel(label)}</strong> {formatDateDisplay(cValue)}{" "}
       <FcCalendar
         style={{
           ...styles.icon,
@@ -504,7 +552,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate, compact = false, showDoP
         }
       />
       {editable === `${fieldKey}_${idx}` && (
-        <div>
+        <div className={compact ? "ms-editor" : undefined}>
           <input
             type="datetime-local"
             value={toInputDateTime(tempDateValue)}
@@ -530,14 +578,85 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate, compact = false, showDoP
     </div>
   );
 
+
+  // A date that exists once per container (Rail-out, Arrival, Delivery, Empty-off): on the job cards it is
+  // ONE box holding every container's value (tagged #1, #2, ...); elsewhere it stays one line per container
+  const renderContainerGroup = (label, fieldKey, guardDisabled = false) => {
+    if (!compact) {
+      return containers.map((c, i) => (
+        <React.Fragment key={`${fieldKey}-${i}`}>
+          {renderContainerEditor(label, c[fieldKey], fieldKey, i, guardDisabled)}
+        </React.Fragment>
+      ));
+    }
+    if (!containers.length) return null;
+    const hasValue = (c) => Boolean(c[fieldKey]) && formatDateDisplay(c[fieldKey]) !== "N/A";
+    const setCount = containers.filter(hasValue).length;
+    tileTotal += 1;
+    if (setCount === containers.length) tileFilled += 1;
+    const state = setCount === containers.length ? " ms-tile--done" : setCount > 0 ? " ms-tile--partial" : "";
+    const multi = containers.length > 1;
+    return (
+      <div className={`ms-tile ms-tile--multi${state}`} title={label}>
+        <strong>{tileLabel(label)}</strong>
+        <div className="ms-vals">
+          {containers.map((c, idx) => {
+            if (hideRest && idx >= CONTAINER_PREVIEW) return null;
+            const locked = guardDisabled && isArrivalDateDisabled(idx);
+            return (
+              <div key={idx} className="ms-val">
+                {multi && (
+                  <span className="ms-cn" title={c.container_number || `Container ${idx + 1}`}>
+                    #{idx + 1}
+                  </span>
+                )}
+                <span className={`ms-vd${hasValue(c) ? "" : " ms-na"}`}>{formatDateDisplay(c[fieldKey])}</span>
+                <FcCalendar
+                  style={{
+                    ...styles.icon,
+                    ...(locked ? { opacity: 0.4, filter: "grayscale(100%)", cursor: "not-allowed" } : {}),
+                  }}
+                  onClick={() => !locked && startEditBlank(fieldKey, idx, guardDisabled)}
+                  onDoubleClick={() => !locked && clearAndEdit(fieldKey, idx)}
+                  title={locked ? "Disabled" : "Click: edit • Double-click: clear"}
+                />
+                {editable === `${fieldKey}_${idx}` && (
+                  <div className="ms-editor">
+                    <input
+                      type="datetime-local"
+                      value={toInputDateTime(tempDateValue)}
+                      onChange={(e) => {
+                        setTempDateValue(e.target.value);
+                        setDateError("");
+                      }}
+                      style={dateError ? styles.errorInput : {}}
+                      autoFocus
+                    />
+                    <button style={styles.submitButton} onClick={() => handleDateSubmit(fieldKey, idx)}>
+                      ✓
+                    </button>
+                    <button style={styles.cancelButton} onClick={() => setEditable(null)}>
+                      ✕
+                    </button>
+                    {dateError && <div style={styles.errorText}>{dateError}</div>}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   // Default layout separates dates with blank lines; compact stacks them with a small gap
   const lineBreak = compact ? null : <br />;
   const columnStyle = compact ? { display: "flex", flexDirection: "column", gap: 12 } : undefined;
 
-  return (
-    <div style={{ display: "flex", gap: 20 }}>
+  const content = (
+    <div className={compact ? "ms-root" : undefined} style={compact ? undefined : { display: "flex", gap: 20 }}>
       {/* Left */}
-      <div style={columnStyle}>
+      <div className={compact ? "ms-col" : undefined} style={compact ? undefined : columnStyle}>
         {!isExBond && (
           <>
             {renderRowDateEditor(
@@ -577,76 +696,71 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate, compact = false, showDoP
               !isLCL &&
               !isAirMode(mode) &&
               activeBranchConfig.railout_enabled && (
-                <div>
-                  {containers.map((c, i) =>
-                    renderContainerEditor(
-                      "Rail-out",
-                      c.container_rail_out_date,
-                      "container_rail_out_date",
-                      i
-                    )
-                  )}
+                <div className={compact ? "ms-group" : undefined}>
+                  {renderContainerGroup("Rail-out", "container_rail_out_date")}
                 </div>
               )}
 
             {isLCL &&
               !isAirMode(mode) &&
-              containers.map((c, i) =>
-                renderContainerEditor(
-                  "ByRoad",
-                  c.by_road_movement_date,
-                  "by_road_movement_date",
-                  i
-                )
-              )}
+              renderContainerGroup("ByRoad", "by_road_movement_date")}
             {lineBreak}
 
             {!isExBond && (
-              <div>
-                {containers.map((c, i) =>
-                  renderContainerEditor(
-                    "Arrival",
-                    c.arrival_date,
-                    "arrival_date",
-                    i,
-                    true
-                  )
-                )}
+              <div className={compact ? "ms-group" : undefined}>
+                {renderContainerGroup("Arrival", "arrival_date", true)}
               </div>
             )}
 
-            {lineBreak}
-            {!isLCL && !isAirMode(mode) && (
-              <div style={{ marginBottom: compact ? 0 : 10 }}>
-                <strong>Free time:</strong>{" "}
-                <TextField
-                  select
-                  size="small"
-                  variant="outlined"
-                  value={localFreeTime || 0}
-                  onChange={(e) => handleFreeTimeChange(e.target.value)}
-                  sx={{ width: 90, ml: 1 }}
-                >
-                  {options.map((n) => (
-                    <MenuItem key={n} value={n}>
-                      {n}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </div>
-            )}
-
-            {lineBreak}
-            {!isLCL && !isExBond && !isAirMode(mode) && (
-              <>
-                <div>
-                  <strong>Detention F.:</strong>
-                  {containers.map((c, i) => (
-                    <div key={`det-${i}`}>
-                      {formatDateDisplay(c.detention_from)}
+            {compact ? (
+              (showFreeTime || showDetention) && (
+                <div className="ms-foot">
+                  {showFreeTime && (
+                    <div className="ms-free">
+                      <span className="ms-foot-k">Free time</span>
+                      {freeTimeSelect({ width: 82 })}
+                      <span className="ms-foot-u">days</span>
                     </div>
-                  ))}
+                  )}
+                  {showDetention && (
+                    <div className="ms-detention">
+                      <span className="ms-foot-k">Detention from</span>
+                      {containers.map((c, i) => (hideRest && i >= CONTAINER_PREVIEW ? null : (
+                        <span key={`det-${i}`} className="ms-det-val">
+                          {containers.length > 1 && (
+                            <span className="ms-cn" title={c.container_number || `Container ${i + 1}`}>
+                              #{i + 1}
+                            </span>
+                          )}
+                          <b className={isDetentionLate(c) ? "ms-late" : undefined}>
+                            {formatDateDisplay(c.detention_from)}
+                          </b>
+                        </span>
+                      )))}
+                    </div>
+                  )}
                 </div>
+              )
+            ) : (
+              <>
+                {lineBreak}
+                {showFreeTime && (
+                  <div style={{ marginBottom: 10 }}>
+                    <strong>Free time:</strong> {freeTimeSelect({ width: 90, ml: 1 })}
+                  </div>
+                )}
+
+                {lineBreak}
+                {showDetention && (
+                  <>
+                    <div>
+                      <strong>Detention F.:</strong>
+                      {containers.map((c, i) => (
+                        <div key={`det-${i}`}>{formatDateDisplay(c.detention_from)}</div>
+                      ))}
+                    </div>
+                  </>
+                )}
               </>
             )}
             {lineBreak}
@@ -655,7 +769,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate, compact = false, showDoP
       </div>
 
       {/* Right */}
-      <div style={columnStyle}>
+      <div className={compact ? "ms-col" : undefined} style={compact ? undefined : columnStyle}>
         {renderRowDateEditor(
           "Assessment Date",
           dates.assessment_date,
@@ -666,9 +780,12 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate, compact = false, showDoP
         {lineBreak}
 
         {payment_method !== "Deferred" && !InBondflag && (
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span>
-              <strong>Duty Paid:</strong>{" "}
+          <div
+            className={compact ? `${tileClass(countTile(dates.duty_paid_date))} ms-tile--duty` : undefined}
+            style={compact ? undefined : { display: "flex", alignItems: "center", gap: 6 }}
+          >
+            <span className={compact ? "ms-duty-text" : undefined}>
+              <strong>Duty Paid{compact ? "" : ":"}</strong>{" "}
               {formatDateDisplay(dates.duty_paid_date)}
             </span>
             <FcCalendar
@@ -686,7 +803,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate, compact = false, showDoP
           </div>
         )}
         {editable === "duty_paid_date" && (
-          <div>
+          <div className={compact ? "ms-editor" : undefined}>
             <input
               type="datetime-local"
               value={toInputDateTime(tempDateValue)}
@@ -725,8 +842,8 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate, compact = false, showDoP
         {/* Shown after OOC by position only; set by ticking DO Planning on the job page */}
         {showDoPlanningDate && (
           <>
-            <div>
-              <strong>DO Planning:</strong> {formatDateDisplay(rowData.do_planning_date)}
+            <div className={tileClass(countTile(rowData.do_planning_date))}>
+              <strong>DO Planning{compact ? "" : ":"}</strong> {formatDateDisplay(rowData.do_planning_date)}
             </div>
             {lineBreak}
           </>
@@ -737,15 +854,8 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate, compact = false, showDoP
             {/* Delivery then EmptyOff */}
             <>
               {lineBreak}
-              <div>
-                {containers.map((c, i) =>
-                  renderContainerEditor(
-                    "Delivery",
-                    c.delivery_date,
-                    "delivery_date",
-                    i
-                  )
-                )}
+              <div className={compact ? "ms-group" : undefined}>
+                {renderContainerGroup("Delivery", "delivery_date")}
               </div>
             </>
 
@@ -753,44 +863,23 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate, compact = false, showDoP
 
 
             {!isLCL && !isExBond && !isAirMode(mode) && (
-              <div>
-                {containers.map((c, i) =>
-                  renderContainerEditor(
-                    "EmptyOff",
-                    c.emptyContainerOffLoadDate,
-                    "emptyContainerOffLoadDate",
-                    i
-                  )
-                )}
+              <div className={compact ? "ms-group" : undefined}>
+                {renderContainerGroup("EmptyOff", "emptyContainerOffLoadDate")}
               </div>
             )}
           </>
         ) : (
           <>
             {!isLCL && !isExBond && !isAirMode(mode) && (
-              <div>
-                {containers.map((c, i) =>
-                  renderContainerEditor(
-                    "Destuffing Date / EmptyOff",
-                    c.emptyContainerOffLoadDate,
-                    "emptyContainerOffLoadDate",
-                    i
-                  )
-                )}
+              <div className={compact ? "ms-group" : undefined}>
+                {renderContainerGroup("Destuffing Date / EmptyOff", "emptyContainerOffLoadDate")}
               </div>
             )}
             {!InBondflag && (
               <>
                 {lineBreak}
-                <div>
-                  {containers.map((c, i) =>
-                    renderContainerEditor(
-                      "Delivery",
-                      c.delivery_date,
-                      "delivery_date",
-                      i
-                    )
-                  )}
+                <div className={compact ? "ms-group" : undefined}>
+                  {renderContainerGroup("Delivery", "delivery_date")}
                 </div>
               </>
             )}
@@ -851,6 +940,37 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate, compact = false, showDoP
         dates={dates}
         containers={containers}
       />
+    </div>
+  );
+
+  if (!compact) return content;
+  return (
+    <div className="ms-wrap">
+      <div className="ms-head">
+        <span className="jc-k">Milestones</span>
+        <div className="ms-bar" aria-hidden="true">
+          {Array.from({ length: tileTotal }, (_, i) => (
+            <i key={i} className={i < tileFilled ? "on" : ""} />
+          ))}
+        </div>
+        <span className="ms-count">
+          <b>{tileFilled}</b> of {tileTotal}
+        </span>
+      </div>
+      {content}
+      {containers.length > CONTAINER_PREVIEW && (
+        <button
+          type="button"
+          className="ms-more"
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowAllContainers((prev) => !prev);
+          }}
+        >
+          {showAllContainers ? "Show less" : `Show dates of ${containers.length - CONTAINER_PREVIEW} more containers`}
+          <KeyboardArrowDownIcon className={`ms-more__chev${showAllContainers ? " is-open" : ""}`} fontSize="inherit" />
+        </button>
+      )}
     </div>
   );
 });

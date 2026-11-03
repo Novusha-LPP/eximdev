@@ -64,3 +64,1240 @@
     }
   }
 }
+
+/* =====================================================================
+   Import DSR job list: every job is a card
+   - the Job cell is the card's header strip (job, tags, status, urgency, queries)
+   - the other cells sit under it and share the width by weight
+   - the status colour arrives on each row as --st (bar), --st-bg (pill) and --st-ink (pill text)
+   ===================================================================== */
+$jl-ink: #0f172a;
+$jl-ink-2: #475569;
+$jl-ink-3: #8793a8;
+$jl-line: #e4e8f0;
+$jl-line-2: #cfd6e3;
+$jl-brand: #2563eb;
+$jl-canvas: #f3f5f9;
+/* Inter for reading and numbers, Plus Jakarta Sans for names and headings (both loaded in index.html) */
+$jl-font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+$jl-font-display: "Plus Jakarta Sans", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+.job-cards.MuiPaper-root {
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  font-family: $jl-font;
+  font-feature-settings: "tnum" 1, "cv11" 1;
+  font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.003em;
+}
+/* MUI parts set their own font: make them follow the list font */
+.job-cards,
+.dsr-shell,
+.dsr-nav,
+.jl-popup {
+  .MuiTypography-root,
+  .MuiInputBase-root,
+  .MuiInputLabel-root,
+  .MuiButton-root,
+  .MuiChip-root,
+  .MuiTab-root,
+  .MuiTableCell-root,
+  .MuiTableSortLabel-root,
+  .MuiPaginationItem-root,
+  .MuiMenuItem-root,
+  .MuiAutocomplete-option,
+  .MuiTooltip-tooltip,
+  button,
+  input,
+  select {
+    font-family: inherit;
+  }
+}
+.jl-popup {
+  font-family: $jl-font;
+  font-feature-settings: "tnum" 1;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- toolbar ---------- */
+.job-cards .job-top-toolbar {
+  background: #fff;
+  border: 1px solid $jl-line;
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  margin-bottom: 12px;
+  padding: 8px 12px;
+}
+
+.job-toolbar {
+  .MuiOutlinedInput-root {
+    border-radius: 10px;
+    background: #fff;
+    font-weight: 600;
+    font-size: 13px;
+  }
+  .MuiOutlinedInput-notchedOutline {
+    border-color: $jl-line-2;
+  }
+  .MuiInputLabel-root {
+    font-size: 12px;
+    font-weight: 700;
+    color: $jl-ink-3;
+  }
+  .job-status-select .MuiSelect-select {
+    display: flex;
+    align-items: center;
+  }
+}
+
+/* ---------- table frame ---------- */
+.job-cards {
+  .MuiTableContainer-root {
+    background: transparent;
+    border-radius: 0;
+    padding: 0;
+    container-type: inline-size;
+    container-name: jl;
+  }
+
+  table {
+    width: 100% !important;
+    min-width: 0;
+    border-spacing: 0;
+  }
+  thead,
+  tbody {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+  /* MRT draws the sticky header at 97% opacity: cards scrolling under it would show through */
+  thead {
+    opacity: 1 !important;
+    z-index: 20;
+  }
+
+  /* column weights (header and body cells share them) */
+  [data-col="importer"] { --w: 1; }
+  [data-col="awb_bl_no"] { --w: 1; }
+  [data-col="dates"] { --w: 2.5; }
+  [data-col="be_no"] { --w: 0.95; }
+  [data-col="container_numbers"] { --w: 1; }
+  [data-col="do_validity"] { --w: 1.15; }
+  [data-col="cth_documents"] { --w: 1.3; }
+
+  /* header */
+  thead tr {
+    width: 100% !important;
+    background: $jl-canvas !important;
+    border-bottom: 1px solid $jl-line-2;
+    box-shadow: none !important;
+  }
+  th[data-col] {
+    flex: var(--w, 1) 1 0% !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    padding: 10px 14px;
+    justify-content: flex-start;
+    background: $jl-canvas !important;
+    border: 0;
+    font-size: 10.5px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    font-weight: 800;
+    color: $jl-ink-2;
+    .Mui-TableHeadCell-Content,
+    .Mui-TableHeadCell-Content-Wrapper {
+      white-space: normal;
+      text-align: left;
+    }
+  }
+  th[data-col="job_no"] {
+    display: none;
+  }
+  th[data-col="job_no"] + th {
+    padding-left: 22px;
+  }
+
+  /* body rows = cards */
+  tbody tr.job-card-row {
+    width: 100% !important;
+    flex-wrap: wrap;
+    align-items: stretch;
+    padding: 0 0 12px;
+    background: transparent !important;
+    &::before {
+      content: "";
+      position: absolute;
+      inset: 0 0 12px 0;
+      background: linear-gradient(90deg, var(--st, #cbd5e1) 0 5px, #fff 5px);
+      background-origin: border-box;
+      border: 1px solid $jl-line;
+      border-left-color: transparent;
+      border-radius: 14px;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+      pointer-events: none;
+      transition: box-shadow 0.15s, border-color 0.15s;
+    }
+    /* App.scss still paints rows by status class on hover: keep the gap between cards clear */
+    &:hover,
+    &:hover td:not([data-col="job_no"]) {
+      background: transparent !important;
+    }
+    /* the header strip keeps its own colour while hovered */
+    &:hover td[data-col="job_no"] {
+      background: var(--st-bg, #f1f5f9) !important;
+    }
+    &.job-card-row--collapsed:hover td[data-col="job_no"] {
+      background: none !important;
+    }
+  }
+  /* MRT paints its own hover tint on every cell; the card draws its own hover instead */
+  tbody tr.job-card-row td::after {
+    content: none !important;
+    display: none !important;
+  }
+  tbody td[data-col] {
+    position: relative;
+    z-index: 1;
+    border: 0;
+    text-align: left;
+    justify-content: flex-start;
+    align-items: flex-start;
+    flex: var(--w, 1) 1 0% !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    padding: 10px 12px 12px;
+    font-size: 12.5px;
+    color: $jl-ink;
+    background: transparent;
+    > * {
+      min-width: 0;
+      max-width: 100%;
+    }
+  }
+  tbody td[data-col] + td[data-col] {
+    border-left: 1px dashed $jl-line;
+    margin: 10px 0 12px;
+    padding: 0 12px;
+  }
+  tbody td[data-col="job_no"] {
+    flex: 0 0 100% !important;
+    width: 100% !important;
+    padding: 7px 16px 7px 22px;
+    border-bottom: 1px solid $jl-line;
+    border-radius: 14px 14px 0 0;
+    align-items: center;
+    background: var(--st-bg, #f1f5f9);
+  }
+  tbody td[data-col="job_no"] + td[data-col] {
+    border-left: 0;
+    margin: 0;
+    padding: 10px 12px 12px 22px;
+  }
+  tbody td[data-col="job_no"] ~ td[data-col]:not(:nth-child(2)) {
+    margin: 0;
+    padding: 10px 12px 12px;
+  }
+
+  /* ---------- Shrink: collapsed rows are a single line ---------- */
+  tbody tr.job-card-row--collapsed {
+    flex-wrap: nowrap;
+    align-items: center;
+    padding-bottom: 8px;
+    &::before {
+      inset: 0 0 8px 0;
+    }
+    td[data-col="job_no"] {
+      flex: 2.8 1 0% !important;
+      width: auto !important;
+      padding: 10px 8px 10px 14px;
+      border-bottom: 0;
+      border-radius: 14px 0 0 14px;
+      background: none;
+    }
+    td[data-col] {
+      align-items: center;
+      padding-top: 10px;
+      padding-bottom: 10px;
+    }
+    td[data-col="job_no"] + td[data-col] {
+      padding: 10px 14px;
+    }
+    td[data-col] + td[data-col] {
+      margin: 0;
+      border-left: 0;
+    }
+  }
+}
+.job-cards--shrink {
+  /* one line per job: the importer needs room, the dates cell only shows one pill */
+  [data-col="importer"] { --w: 1.7; }
+  [data-col="awb_bl_no"] { --w: 1.4; }
+  [data-col="dates"] { --w: 1.9; }
+  [data-col="be_no"] { --w: 1.6; }
+  [data-col="do_validity"] { --w: 1.1; }
+  [data-col="cth_documents"] { --w: 1; }
+  th[data-col="job_no"] {
+    display: flex;
+    flex: 2.8 1 0% !important;
+    padding-left: 14px;
+  }
+  th[data-col="job_no"] + th {
+    padding-left: 14px;
+  }
+}
+
+/* ---------- footer ---------- */
+.job-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  padding: 10px 14px;
+  background: #fff;
+  border: 1px solid $jl-line;
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  &__summary {
+    color: $jl-ink-2;
+    font-size: 13px;
+    b {
+      color: $jl-ink;
+    }
+  }
+  .MuiPaginationItem-root {
+    font-weight: 700;
+  }
+}
+
+/* ---------- Job cell = card header strip ---------- */
+.job-cards {
+  .jc-strip {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 10px;
+    width: 100%;
+  }
+  .jc-id {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+  .jc-jobno {
+    font-family: $jl-font-display;
+    font-weight: 800;
+    font-size: 14px;
+    letter-spacing: -0.015em;
+    color: $jl-ink;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+    &:hover {
+      color: $jl-brand;
+      text-decoration: underline;
+    }
+  }
+  .jc-icon-btn {
+    padding: 3px !important;
+    color: $jl-ink-3 !important;
+    &:hover {
+      color: $jl-ink !important;
+      background: #e9edf5 !important;
+    }
+  }
+  .jc-tags {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+  }
+  .jc-tag {
+    display: inline-flex;
+    align-items: center;
+    height: 20px;
+    padding: 0 8px;
+    border-radius: 99px;
+    background: #eceff6;
+    color: $jl-ink-2;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+    &--sm {
+      height: 19px;
+      padding: 0 7px;
+      font-size: 10.5px;
+    }
+    &--brand {
+      background: #eef3ff;
+      color: #1e40af;
+    }
+  }
+  .jc-adv {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 7px;
+    background: #fff1f1;
+    color: #b42318;
+    border: 1px solid #f5caca;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .jc-right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .jc-urg {
+    display: inline-flex;
+    align-items: center;
+    height: 22px;
+    padding: 0 9px;
+    border-radius: 7px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .jc-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    max-width: 100%;
+    height: 22px;
+    padding: 0 9px;
+    border-radius: 99px;
+    background: var(--st-bg, #f1f5f9);
+    color: var(--st-ink, #475569);
+    border: 1px solid color-mix(in srgb, var(--st, #94a3b8) 55%, transparent);
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    &::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--st, #94a3b8);
+      flex: none;
+    }
+    &--sm {
+      height: 22px;
+      min-width: 0;
+      flex: 0 1 auto;
+    }
+  }
+  .jc-q {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .jc-qbtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 24px;
+    padding: 0 9px;
+    border-radius: 7px;
+    border: 1px solid $jl-line-2;
+    background: #fff;
+    color: $jl-ink;
+    font: inherit;
+    font-size: 11.5px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    &:hover {
+      background: #f5f7fb;
+    }
+    &--new {
+      background: #fee2e2;
+      color: #b91c1c;
+      border-color: #fca5a5;
+    }
+    &--open {
+      background: #fef3c7;
+      color: #92400e;
+      border-color: #fcd34d;
+    }
+    &--done {
+      background: #dcfce7;
+      color: #166534;
+      border-color: #86efac;
+    }
+    &--resolve {
+      color: #166534;
+      border-color: #bfe3cc;
+    }
+  }
+  .jc-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex: none;
+    &--red { background: #ef4444; }
+    &--amber { background: #f59e0b; }
+    &--green { background: #10b981; }
+  }
+  .jc-compact {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    row-gap: 4px;
+    gap: 6px;
+    min-width: 0;
+    width: 100%;
+    .jc-jobno {
+      font-size: 13px;
+    }
+    /* the status name is long in this narrow cell: let it wrap instead of being cut */
+    .jc-status {
+      height: auto;
+      min-height: 24px;
+      padding-top: 3px;
+      padding-bottom: 3px;
+      line-height: 1.25;
+      white-space: normal;
+    }
+  }
+}
+
+/* ---------- card contents ---------- */
+.job-cards {
+  .jc-dim { color: $jl-ink-3; font-weight: 500; }
+  .jc-k {
+    display: block;
+    font-size: 10.5px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: $jl-ink-3;
+    font-weight: 800;
+  }
+  /* ids and numbers: Inter with a slashed zero keeps 0 and O apart without a monospace font */
+  .jc-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; letter-spacing: -0.01em; }
+  .jc-empty { color: $jl-ink-3; font-size: 12px; font-style: italic; }
+
+  /* importer */
+  .jc-imp-name { font-family: $jl-font-display; font-weight: 700; font-size: 13px; letter-spacing: -0.01em; line-height: 1.3; }
+  .jc-imp-ex { margin-top: 2px; color: $jl-ink-2; font-size: 11.5px; line-height: 1.35; }
+  .jc-kv {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 3px 10px;
+    margin: 8px 0 0;
+    font-size: 11.5px;
+    align-items: center;
+    dt { color: $jl-ink-3; font-weight: 600; }
+    dd { margin: 0; font-weight: 700; }
+  }
+  .jc-yn {
+    display: inline-flex;
+    align-items: center;
+    min-height: 18px;
+    max-width: 100%;
+    padding: 2px 8px;
+    border-radius: 8px;
+    line-height: 1.3;
+    text-align: left;
+    overflow-wrap: anywhere;
+    background: #eceff6;
+    color: $jl-ink-2;
+    font-size: 10.5px;
+    font-weight: 700;
+    &--yes { background: #e7f6ec; color: #15803d; }
+    &--warn { background: #fff3dc; color: #b45309; }
+  }
+
+  /* BL / shipment */
+  .jc-line { margin-top: 6px; font-weight: 600; font-size: 12px; line-height: 1.3; }
+  .jc-wt {
+    display: flex;
+    gap: 14px;
+    margin-top: 6px;
+    > div { display: flex; flex-direction: column; }
+    b { font-size: 12.5px; font-weight: 700; }
+  }
+  /* LO and POD: two even columns, each name under its label (a long port name wraps inside its own column) */
+  .jc-route {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 4px 12px;
+    margin-top: 8px;
+    > div { display: flex; flex-direction: column; min-width: 0; }
+    b { font-size: 12px; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
+  }
+  .jc-route-end { text-align: left; }
+  .jc-route-line { display: none; }
+
+  /* milestone tiles (dates cell): two columns in the same order as the old list
+     left: ETA, GIGM, Discharge, Rail-out, Arrival, Free time, Detention   right: Assessment ... Delivery
+     a tile is one line (name left, date right) and wraps to name-over-date when the column is narrow */
+  .ms-wrap { width: 100%; }
+  .ms-head { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; }
+  .ms-head .jc-k { flex: none; }
+  .ms-count { flex: none; font-size: 11.5px; color: $jl-ink-2; font-weight: 600; b { color: $jl-ink; font-weight: 800; } }
+  .ms-bar {
+    display: flex;
+    flex: 1;
+    gap: 2px;
+    min-width: 40px;
+    i { flex: 1; height: 4px; border-radius: 2px; background: #e4e9f2; &.on { background: #22a55b; } }
+  }
+  .ms-root { display: grid; grid-template-columns: repeat(auto-fit, minmax(124px, 1fr)); gap: 5px 8px; align-items: start; }
+  .ms-col { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .ms-group { display: contents; }
+  .ms-tile {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: 6px;
+    row-gap: 0;
+    min-height: 28px;
+    position: relative;
+    padding: 4px 22px 4px 9px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    background: #f7f9fc;
+    color: $jl-ink-3;
+    font-size: 12px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.25;
+    > strong {
+      flex: 1 1 0;
+      min-width: min-content;
+      font-size: 9.5px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: $jl-ink-3;
+      font-weight: 700;
+      line-height: 1.25;
+    }
+    > svg {
+      position: absolute;
+      right: 6px;
+      top: 50%;
+      width: 13px !important;
+      height: 13px !important;
+      margin: -6.5px 0 0 !important;
+      opacity: 0;
+      transition: opacity 0.12s;
+    }
+    &:hover > svg { opacity: 0.85; }
+    &--done { background: #f0f9f3; border-color: #dcefe3; color: $jl-ink; font-weight: 700; }
+    &--duty {
+      .ms-duty-text { display: contents; > strong { flex: 1 1 0; min-width: min-content; font-size: 9.5px; letter-spacing: 0.05em; text-transform: uppercase; color: $jl-ink-3; font-weight: 700; } }
+      > .MuiSvgIcon-root { position: static; width: 15px !important; height: 15px !important; margin: 0 !important; opacity: 0.8; }
+    }
+  }
+  /* a date that exists once per container: ONE box, the name on the left and a date per container on the right */
+  .ms-tile--multi {
+    padding-right: 9px;
+    column-gap: 8px;
+    &.ms-tile--partial { background: #fffaf0; border-color: #f6e2b3; }
+    &:hover .ms-val > svg { opacity: 0.85; }
+  }
+  .ms-vals { display: flex; flex: 0 0 auto; flex-direction: column; align-items: flex-end; gap: 1px; margin-left: auto; min-width: 0; }
+  .ms-val {
+    display: grid;
+    grid-template-columns: auto auto auto;
+    align-items: center;
+    column-gap: 5px;
+    color: $jl-ink;
+    font-weight: 700;
+    > svg { width: 13px !important; height: 13px !important; margin: 0 !important; opacity: 0; transition: opacity 0.12s; }
+    .ms-editor { grid-column: 1 / -1; }
+  }
+  .ms-vd { white-space: nowrap; }
+  .ms-na { color: $jl-ink-3; font-weight: 600; }
+  .ms-cn {
+    display: inline-flex;
+    align-items: center;
+    height: 15px;
+    padding: 0 4px;
+    border-radius: 4px;
+    background: #e8edf7;
+    color: #5b6b91;
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .ms-editor {
+    flex: 1 1 100%;
+    grid-column: 1 / -1;
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    input[type="datetime-local"] { max-width: 100%; height: 28px; border: 1px solid $jl-line-2; border-radius: 7px; font-size: 12px; font-family: inherit; }
+  }
+  /* free time + detention under the milestone tiles */
+  .ms-foot {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px 16px;
+    margin-top: 2px;
+    padding: 6px 9px;
+    border-radius: 8px;
+    background: #fafbfd;
+    border: 1px dashed $jl-line-2;
+    font-size: 11.5px;
+    color: $jl-ink-2;
+  }
+  .ms-free, .ms-detention { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; }
+  .ms-foot-k { font-size: 9.5px; letter-spacing: 0.05em; text-transform: uppercase; color: $jl-ink-3; font-weight: 700; white-space: nowrap; }
+  .ms-foot-u { color: $jl-ink-3; font-weight: 600; }
+  .ms-free .MuiOutlinedInput-root { height: 26px; border-radius: 7px; font-size: 12px; font-weight: 700; background: #fff; }
+  .ms-free .MuiSelect-select { padding: 2px 24px 2px 8px !important; }
+  .ms-detention { flex-wrap: wrap; row-gap: 2px; }
+  .ms-det-val { display: inline-flex; align-items: center; gap: 4px; }
+  .ms-detention b { font-weight: 700; color: $jl-ink; font-variant-numeric: tabular-nums; }
+  .ms-detention .ms-late { color: #b91c1c; background: #fee2e2; padding: 1px 7px; border-radius: 6px; }
+
+  /* DO completed & validity */
+  .jc-tl {
+    list-style: none;
+    margin: 0;
+    padding: 0 0 0 16px;
+    position: relative;
+    &::before { content: ""; position: absolute; left: 3.5px; top: 6px; bottom: 8px; width: 2px; background: #d9e8df; border-radius: 2px; }
+    li {
+      position: relative;
+      margin-bottom: 6px;
+      font-size: 12px;
+      line-height: 1.3;
+      &::before { content: ""; position: absolute; left: -16px; top: 3px; width: 9px; height: 9px; border-radius: 50%; background: #22a55b; box-shadow: 0 0 0 3px #fff; }
+      &.info::before { background: $jl-brand; }
+      &.none::before { background: #cbd3e1; }
+      b { display: block; font-weight: 600; }
+      span { display: block; color: $jl-ink-2; font-size: 11px; }
+      &.none b { color: $jl-ink-3; font-weight: 600; }
+    }
+  }
+  .jc-chiprow { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+  .jc-doc-link {
+    display: inline-flex;
+    align-items: center;
+    height: 22px;
+    padding: 0 8px;
+    border-radius: 7px;
+    background: #eef3ff;
+    color: #1e40af;
+    font-weight: 600;
+    font-size: 11.5px;
+    text-decoration: none;
+    &:hover { background: #d9e5ff; }
+  }
+  .jc-eo { margin-top: 6px; b { display: block; font-size: 11.5px; font-weight: 600; line-height: 1.3; } }
+  .jc-inv { margin-top: 6px; width: 100%; .MuiOutlinedInput-root { border-radius: 8px; font-size: 12px; } }
+
+  /* E-Sanchit documents: plain rows with a thin divider, name / IRN . date, copy icon at the right */
+  .jc-es { width: 100%; display: flex; flex-direction: column; gap: 0; }
+  .jc-es > .jc-k { margin-bottom: 2px; }
+  .jc-es-doc {
+    position: relative;
+    padding: 7px 24px 7px 0;
+    border-bottom: 1px solid $jl-line;
+    &:last-of-type { border-bottom: 0; }
+  }
+  .jc-es-main { min-width: 0; }
+  .jc-es-link { display: block; text-decoration: none; &:hover .jc-es-name { text-decoration: underline; } }
+  .jc-es-name { display: block; font-weight: 700; font-size: 12.5px; line-height: 1.3; color: $jl-brand; word-break: break-word; }
+  .jc-es-irn { display: block; margin-top: 2px; font-feature-settings: "tnum" 1, "zero" 1; font-size: 11px; font-weight: 500; line-height: 1.4; color: $jl-ink-2; }
+  .jc-es-sep { color: $jl-ink-3; }
+  .jc-es-doc > .MuiIconButton-root { position: absolute; top: 5px; right: -2px; padding: 3px !important; color: $jl-ink-3 !important; svg { font-size: 14px; } &:hover { color: $jl-ink !important; } }
+  .jc-more {
+    display: inline-flex; align-items: center; gap: 4px; align-self: flex-start;
+    margin-top: 4px; padding: 0; border: 0; background: none; font: inherit; font-weight: 700; font-size: 12px; color: $jl-brand; cursor: pointer;
+  }
+  .jc-more__chev { font-size: 16px !important; transition: transform 0.15s; &.is-open { transform: rotate(180deg); } }
+
+  /* BE number + its documents (existing component, inline styles → !important) */
+  .jc-be {
+    width: 100%;
+    > div { align-items: flex-start !important; text-align: left !important; width: 100%; }
+    a:not([target]) { font-family: $jl-font-display; font-size: 15px !important; font-weight: 800 !important; letter-spacing: -0.015em; color: $jl-ink !important; margin-bottom: 0 !important; }
+    > div > div[style*="margin-top: 10px"] {
+      width: 100%;
+      margin-top: 4px !important;
+      padding: 4px 8px;
+      border: 1px solid $jl-line;
+      border-radius: 8px;
+      background: #fff;
+      font-size: 11.5px;
+      font-weight: 600;
+      a { color: $jl-brand !important; text-decoration: none !important; }
+      button[title^="Upload"] { color: $jl-brand !important; }
+      &::before {
+        content: "";
+        width: 14px;
+        height: 14px;
+        margin-right: 6px;
+        flex: none;
+        background: $jl-ink-3;
+        -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z'/%3E%3Cpath d='M14 3v5h5M9 13h6M9 17h6'/%3E%3C/svg%3E") center / contain no-repeat;
+                mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z'/%3E%3Cpath d='M14 3v5h5M9 13h6M9 17h6'/%3E%3C/svg%3E") center / contain no-repeat;
+      }
+    }
+  }
+
+  /* containers (existing component): ONE box, a row per container */
+  .jc-ctr {
+    width: 100%;
+    padding: 0 10px;
+    border: 1px solid $jl-line;
+    border-radius: 10px;
+    background: #fff;
+    &:empty { display: none; }
+    > div {
+      margin: 0 !important;
+      padding: 6px 0;
+      border-bottom: 1px dashed $jl-line;
+      font-size: 11.5px;
+      line-height: 1.45;
+      &:last-of-type { border-bottom: 0; }
+    }
+    a { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: -0.01em; font-size: 12px; font-weight: 700; }
+  }
+
+  /* BL tracking (existing component) */
+  .jc-bl a { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: -0.01em; font-weight: 700; }
+
+  /* dates / do cells may let the inline editor breathe */
+  td[data-col="dates"] { overflow: visible; }
+}
+
+/* =====================================================================
+   Responsive: the card reflows by the width of the table area (not the screen)
+   >=1300  one line of 7 columns        1000-1299  3 per line
+   700-999 2 per line                   <700       1 per line (stacked)
+   The column headings turn into small sort chips and each cell shows its own name.
+   ===================================================================== */
+@container jl (max-width: 1299px) {
+  .job-cards {
+    thead tr {
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 8px 10px;
+    }
+    th[data-col] {
+      flex: 0 0 auto !important;
+      padding: 4px 12px;
+      border: 1px solid $jl-line-2;
+      border-radius: 99px;
+      background: #fff !important;
+    }
+    th[data-col="dates"],
+    th[data-col="do_validity"],
+    th[data-col="cth_documents"],
+    th[data-col="job_no"] {
+      display: none;
+    }
+    tbody tr.job-card-row,
+    tbody tr.job-card-row--collapsed {
+      flex-wrap: wrap;
+      align-items: stretch;
+      padding-bottom: 12px;
+      &::before { inset: 0 0 12px 0; }
+    }
+    tbody td[data-col="job_no"] {
+      flex: 0 0 100% !important;
+      width: 100% !important;
+      border-bottom: 0;
+      border-radius: 14px 14px 0 0;
+      padding: 10px 16px 10px 22px;
+      background: var(--st-bg, #f1f5f9);
+    }
+    tbody td[data-col]:not([data-col="job_no"]) {
+      /* longhands: the flexbugs postcss plugin strips !important from a calc() flex shorthand */
+      flex-grow: 1 !important;
+      flex-shrink: 1 !important;
+      flex-basis: calc(33.333% - 1px) !important;
+      align-items: stretch;
+      flex-direction: column;
+      margin: 0 !important;
+      padding: 14px 14px 16px !important;
+      border-left: 0 !important;
+      border-top: 1px dashed $jl-line !important;
+    }
+    tbody td[data-col="job_no"] + td[data-col] { padding-left: 22px !important; }
+    /* the dates cell is the tallest one: give it half of the line so its tiles sit on one line each */
+    tbody td[data-col="importer"]:not([data-col="job_no"]),
+    tbody td[data-col="awb_bl_no"]:not([data-col="job_no"]) { flex-basis: calc(25% - 1px) !important; }
+    tbody td[data-col="dates"]:not([data-col="job_no"]) { flex-basis: calc(50% - 1px) !important; }
+    /* Shrink rows: the compact line turns into the same wrapped card */
+    tbody tr.job-card-row--collapsed td[data-col="job_no"] {
+      flex: 0 0 100% !important;
+      width: 100% !important;
+      border-radius: 14px 14px 0 0;
+      padding: 10px 16px 10px 22px;
+      background: var(--st-bg, #f1f5f9);
+    }
+    tbody tr.job-card-row--collapsed td[data-col]:not([data-col="job_no"]) { align-items: stretch; }
+    /* each cell says what it is, since the column headings are gone */
+    tbody td[data-col="awb_bl_no"]::before,
+    tbody td[data-col="be_no"]::before,
+    tbody td[data-col="container_numbers"]::before,
+    tbody td[data-col="do_validity"]::before {
+      content: attr(data-label);
+      margin-bottom: 6px;
+      font-size: 10.5px;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: $jl-ink-3;
+      font-weight: 800;
+    }
+    .jc-compact { flex-wrap: wrap; }
+  }
+}
+@container jl (max-width: 999px) {
+  .job-cards tbody td[data-col]:not([data-col="job_no"]) { flex-basis: calc(50% - 1px) !important; }
+  .job-cards tbody td[data-col="dates"]:not([data-col="job_no"]) { flex-basis: 100% !important; }
+}
+@container jl (max-width: 699px) {
+  .job-cards {
+    tbody td[data-col]:not([data-col="job_no"]) { flex-basis: 100% !important; }
+    .jc-right { margin-left: 0; width: 100%; }
+    .jc-q { flex-wrap: wrap; }
+    .ms-root { grid-template-columns: 1fr 1fr; }
+  }
+}
+
+
+/* =====================================================================
+   Page header: page tabs, status tabs, actions
+   ===================================================================== */
+.dsr-nav {
+  .MuiTabs-root { min-height: 44px; }
+  .MuiTab-root {
+    min-height: 44px;
+    min-width: 0;
+    padding: 8px 16px;
+    text-transform: none;
+    font-family: $jl-font-display;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: $jl-ink-3;
+    transition: color 0.15s;
+    &:hover { color: $jl-ink; }
+    &.Mui-selected { color: $jl-brand; }
+  }
+  .MuiTabs-indicator { height: 3px; border-radius: 3px 3px 0 0; }
+}
+
+.dsr-shell {
+  font-family: $jl-font;
+  -webkit-font-smoothing: antialiased;
+}
+.dsr-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  margin: 10px 0 12px;
+}
+.dsr-status-tabs.MuiTabs-root {
+  max-width: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding: 4px;
+  border-radius: 12px;
+  background: #e9edf5;
+  .MuiTabs-indicator { display: none; }
+  .MuiTab-root {
+    min-height: 32px;
+    min-width: 0;
+    padding: 4px 12px;
+    border-radius: 9px;
+    text-transform: none;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    color: $jl-ink-2;
+    transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+    &:hover { color: $jl-ink; background: rgba(255, 255, 255, 0.55); }
+    &.Mui-selected {
+      color: $jl-ink;
+      background: #fff;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(15, 23, 42, 0.04);
+    }
+  }
+  .MuiTabScrollButton-root { width: 24px; opacity: 0.7; }
+}
+.dsr-tab-label { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.dsr-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  font-feature-settings: "tnum" 1;
+  line-height: 1;
+  &--blue { background: #dbe8ff; color: #1d4ed8; }
+  &--green { background: #d6f3e1; color: #15803d; }
+  &--grey { background: #dde2ec; color: #475569; }
+  &--red { background: #fde0e0; color: #b91c1c; }
+}
+.dsr-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.dsr-btn.MuiButton-root {
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  box-shadow: none;
+  text-transform: none;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+  .MuiButton-startIcon { margin: 0 6px 0 -2px; svg { font-size: 18px; } }
+  &.dsr-btn--primary { background: $jl-brand; color: #fff; box-shadow: 0 1px 2px rgba(37, 99, 235, 0.35); &:hover { background: #1d4ed8; } }
+  &.dsr-btn--danger { background: #dc2626; color: #fff; box-shadow: 0 1px 2px rgba(220, 38, 38, 0.35); &:hover { background: #b91c1c; } }
+  &.dsr-btn--green { background: #ecfdf3; color: #027a48; border-color: #b6ecc9; &:hover { background: #d3f8e1; } }
+  &.dsr-btn--soft { background: #eef3ff; color: #1e40af; border-color: #cddcff; &:hover { background: #dfe9ff; } }
+}
+.dsr-btn__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 18px;
+  margin-left: 8px;
+  padding: 0 6px;
+  border-radius: 99px;
+  background: #fff;
+  color: #b91c1c;
+  font-size: 11px;
+  font-weight: 800;
+  font-feature-settings: "tnum" 1;
+  line-height: 1;
+}
+.dsr-icon-btn.MuiIconButton-root {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: #eef1f7;
+  color: #334155;
+  &:hover { background: #e1e6f0; }
+  svg { font-size: 20px; }
+}
+
+/* =====================================================================
+   Toolbar: title with count, filters at one height, segmented view switch
+   ===================================================================== */
+.job-toolbar {
+  .jt-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-family: $jl-font-display;
+    font-size: 17px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: $jl-ink;
+    white-space: nowrap;
+  }
+  .jt-count {
+    display: inline-flex;
+    align-items: center;
+    height: 24px;
+    padding: 0 10px;
+    border-radius: 99px;
+    background: #eaf0ff;
+    color: #1d4ed8;
+    font-family: $jl-font;
+    font-size: 12.5px;
+    font-weight: 700;
+    letter-spacing: 0;
+    font-feature-settings: "tnum" 1;
+  }
+  .MuiOutlinedInput-root {
+    min-height: 36px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    background: #fff;
+    transition: box-shadow 0.15s;
+    &:hover .MuiOutlinedInput-notchedOutline { border-color: #aeb8cc; }
+    &.Mui-focused { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14); }
+    &.Mui-focused .MuiOutlinedInput-notchedOutline { border-width: 1px; border-color: $jl-brand; }
+  }
+  .MuiSelect-select.MuiInputBase-input,
+  .MuiOutlinedInput-input {
+    padding-top: 7px !important;
+    padding-bottom: 7px !important;
+  }
+  .MuiAutocomplete-root .MuiOutlinedInput-root.MuiInputBase-root { padding-top: 0 !important; padding-bottom: 0 !important; }
+  .MuiAutocomplete-root .MuiAutocomplete-input { padding-top: 7px !important; padding-bottom: 7px !important; }
+  .MuiInputLabel-outlined {
+    transform: translate(14px, 8px) scale(1);
+    &.MuiInputLabel-shrink { transform: translate(14px, -8px) scale(0.78); }
+  }
+  .MuiInputLabel-root { letter-spacing: 0; font-weight: 600; }
+  .MuiIconButton-root { border-radius: 9px; color: $jl-ink-2; &:hover { background: #eef1f7; } }
+}
+.job-cards .job-top-toolbar { padding: 6px 12px; border-radius: 14px; }
+
+/* =====================================================================
+   Importer cell follows its own width: in a narrow cell each label sits above its value
+   ===================================================================== */
+.job-cards tbody td[data-col="importer"] {
+  container-type: inline-size;
+  container-name: jcimp;
+}
+@container jcimp (max-width: 230px) {
+  .job-cards .jc-kv {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    dt { margin-top: 6px; font-size: 10.5px; }
+    dd { margin-top: 1px; }
+  }
+}
+
+
+/* =====================================================================
+   BE number and containers cells (as in the approved design)
+   ===================================================================== */
+.job-cards {
+  .jc-be > .jc-k { margin-bottom: 4px; }
+  .be-date { display: block; margin: 0 0 2px; font-size: 12px; color: $jl-ink-2; font-weight: 500; }
+  .be-doc {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    flex-wrap: nowrap;
+    font-size: 12px;
+  }
+  .be-doc__icon { color: $jl-ink-3; font-size: 15px !important; flex: none; }
+  .be-doc__name { min-width: 0; font-weight: 700; line-height: 1.25; color: $jl-ink; margin-right: auto; }
+  .jc-be > div > div[style*="margin-top: 10px"] > div { min-width: 0; }
+  .jc-be > div > div[style*="margin-top: 10px"]::before { content: none !important; }
+  .be-doc--none .be-doc__name { color: $jl-ink-3; font-weight: 600; }
+  .be-doc__n {
+    font-weight: 700;
+    color: $jl-brand !important;
+    text-decoration: none !important;
+    padding: 0 3px;
+    border-radius: 4px;
+    &:hover { background: #eef3ff; }
+  }
+  .jc-be button[title^="Upload"] { color: $jl-ink-3 !important; &:hover { color: $jl-brand !important; } }
+
+  .jc-ctr-wrap { width: 100%; > .jc-k { margin-bottom: 6px; } }
+  .jc-ctr > div { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; }
+  .jc-ctr .cc-size { display: block; margin-top: 2px; font-size: 12px; font-weight: 500; color: $jl-ink-2; }
+  .jc-ctr > div > div { margin-top: 2px; }
+}
+
+.job-cards .jc-ctr {
+  .MuiIconButton-root { padding: 3px !important; color: $jl-ink-3 !important; &:hover { color: $jl-ink !important; background: #eef1f7 !important; } }
+  .MuiSvgIcon-root, svg { font-size: 15px; width: 15px; height: 15px; }
+  svg[data-icon="anchor"] { color: #7c3aed !important; width: 13px; height: 13px; }
+}
+
+/* =====================================================================
+   Icon colours carry a meaning
+   copy = blue   calendar (date) = amber   refresh = teal   upload = blue
+   challan download = green   IGST download = purple   track = purple
+   BoE = indigo   OOC = green   gate pass = orange
+   ===================================================================== */
+.job-cards {
+  .jc-icon-btn .ic-refresh, .ic-refresh { color: #0d9488; }
+  .jc-icon-btn:hover .ic-refresh { color: #0f766e; }
+  .jc-strip .jc-icon-btn:not(:has(.ic-refresh)) { color: #3b82f6 !important; }
+  .jc-strip .jc-icon-btn:has(.ic-refresh) { color: #0d9488 !important; }
+  .jc-es-doc > .MuiIconButton-root { color: #3b82f6 !important; &:hover { color: #2563eb !important; background: #eef3ff !important; } }
+  .jc-ctr .MuiIconButton-root { color: #3b82f6 !important; &:hover { color: #2563eb !important; background: #eef3ff !important; } }
+  .jc-ctr svg.ic-challan { color: #16a34a !important; }
+  .jc-ctr svg.ic-igst { color: #7c3aed !important; }
+  .jc-ctr .MuiIconButton-root:has(.ic-challan) { color: #16a34a !important; &:hover { background: #e7f6ec !important; } }
+  .jc-ctr .MuiIconButton-root:has(.ic-igst) { color: #7c3aed !important; &:hover { background: #f1eaff !important; } }
+  .jc-be button[title^="Upload"] { color: #2563eb !important; &:hover { color: #1d4ed8 !important; } }
+  .jc-be .MuiIconButton-root { color: #5b8def; }
+  .ms-tile > svg, .ms-val > svg { color: #d97706 !important; }
+  .be-doc--processed svg.be-doc__icon { color: #4f46e5 !important; }
+  .be-doc--ooc svg.be-doc__icon { color: #16a34a !important; }
+  .be-doc--gate svg.be-doc__icon { color: #ea580c !important; }
+  .be-doc--none svg.be-doc__icon { color: $jl-ink-3 !important; }
+  .jc-es-link .jc-es-name { color: $jl-brand; }
+}
+
+/* vessel, anchor and copy in the BL and container cells (a global rule paints every svg grey) */
+.job-cards {
+  svg[data-testid="DirectionsBoatOutlinedIcon"] { color: #2563eb !important; }
+  svg[data-testid="AnchorOutlinedIcon"] { color: #7c3aed !important; }
+  svg[data-testid="Inventory2OutlinedIcon"] { color: #15803d !important; }
+  svg[data-testid="ContentCopyOutlinedIcon"] { color: #3b82f6 !important; }
+  svg[data-testid="FileDownloadOutlinedIcon"] { color: #3b82f6 !important; }
+  svg[data-testid="RefreshOutlinedIcon"] { color: #0d9488 !important; }
+  .jc-ctr svg.ic-challan, .jc-ctr svg[data-testid="FileDownloadOutlinedIcon"].ic-challan { color: #16a34a !important; }
+  .jc-ctr svg.ic-igst, .jc-ctr svg[data-testid="FileDownloadOutlinedIcon"].ic-igst { color: #7c3aed !important; }
+  svg[data-testid="ContentCopyOutlinedIcon"]:hover { color: #1d4ed8 !important; }
+}
+
+/* very narrow windows: nothing may be wider than the screen */
+@media (max-width: 479px) {
+  .job-toolbar { > *, .MuiTextField-root, .MuiAutocomplete-root { min-width: 0 !important; max-width: 100% !important; flex: 1 1 100% !important; } }
+  .dsr-bar { gap: 8px; }
+  .dsr-actions { width: 100%; }
+  .dsr-actions .dsr-btn { flex: 1 1 auto; }
+  .job-cards .job-top-toolbar { padding: 6px 8px; }
+}
+
+/* the header strip is one block: the status bar and the tint are drawn together and share the card's rounded corners */
+.job-cards tbody tr.job-card-row:not(.job-card-row--collapsed) td[data-col="job_no"] {
+  flex: 0 0 100% !important;
+  width: 100% !important;
+  box-sizing: border-box;
+  margin: 0 !important;
+  padding-left: 22px !important;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  background:
+    linear-gradient(90deg, var(--st, #cbd5e1) 0 5px, transparent 5px),
+    linear-gradient(90deg, var(--st-bg, #f1f5f9) 5px, #fff 75%) !important;
+  background-origin: border-box !important;
+  background-clip: border-box !important;
+  border-radius: 14px 14px 0 0 !important;
+  overflow: hidden;
+}
+
+/* "Show n more" under the per-container dates and the containers list */
+.job-cards {
+  .ms-more, .jc-ctr-wrap .jc-more {
+    display: inline-flex; align-items: center; gap: 4px; margin-top: 6px; padding: 0; border: 0; background: none;
+    font: inherit; font-weight: 700; font-size: 12px; color: $jl-brand; cursor: pointer;
+  }
+  .ms-more__chev { font-size: 16px !important; transition: transform 0.15s; &.is-open { transform: rotate(180deg); } }
+}
+
+/* one layer: the column header is a rounded bar, the cards sit straight on the page */
+.job-cards thead tr { border-radius: 12px; border-bottom: 0 !important; overflow: hidden; }

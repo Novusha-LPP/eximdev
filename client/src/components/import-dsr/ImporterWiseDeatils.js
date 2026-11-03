@@ -39,14 +39,20 @@ function ImporterWiseDetails() {
   useEffect(() => {
     async function getImporterList() {
       if (selectedYear) {
-        const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYear}`,
-          { params: { branchId: selectedBranch, category: selectedCategory } }
-        );
-        setImporterData(res.data);
-        // Check if importerData is not empty before setting the selectedImporter
-        if (res.data.length > 0) {
-          setSelectedImporter(res.data[0].importer);
+        try {
+          const res = await axios.get(
+            `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYear}`,
+            {
+              params: { branchId: selectedBranch, category: selectedCategory },
+            },
+          );
+          setImporterData(res.data);
+          // Check if importerData is not empty before setting the selectedImporter
+          if (res.data.length > 0) {
+            setSelectedImporter(res.data[0].importer);
+          }
+        } catch (error) {
+          console.error("Error fetching importer list:", error);
         }
       }
     }
@@ -62,24 +68,32 @@ function ImporterWiseDetails() {
   useEffect(() => {
     async function getImporterData() {
       if (selectedImporter) {
-        const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING
-          }/get-importer-jobs/${selectedImporter
-            .toLowerCase()
-            .replace(/ /g, "_")
-            .replace(/\./g, "")
-            .replace(/\//g, "_")
-            .replace(/-/g, "")
-            .replace(/_+/g, "_")
-            .replace(/\(/g, "")
-            .replace(/\)/g, "")
-            .replace(/\[/g, "")
-            .replace(/\]/g, "")
-            .replace(/,/g, "")}/${selectedYear}`,
-          { params: { branchId: selectedBranch, category: selectedCategory } }
-        );
+        try {
+          const res = await axios.get(
+            `${
+              process.env.REACT_APP_API_STRING
+            }/get-importer-jobs/${selectedImporter
+              .toLowerCase()
+              .replace(/ /g, "_")
+              .replace(/\./g, "")
+              .replace(/\//g, "_")
+              .replace(/-/g, "")
+              .replace(/_+/g, "_")
+              .replace(/\(/g, "")
+              .replace(/\)/g, "")
+              .replace(/\[/g, "")
+              .replace(/\]/g, "")
+              .replace(/,/g, "")}/${selectedYear}`,
+            {
+              params: { branchId: selectedBranch, category: selectedCategory },
+            },
+          );
 
-        setData(res.data);
+          setData(res.data);
+        } catch (error) {
+          console.error("Error fetching importer jobs:", error);
+          setData([]);
+        }
       }
     }
     getImporterData();
@@ -96,7 +110,7 @@ function ImporterWiseDetails() {
               params: {
                 importerName: selectedImporter,
               },
-            }
+            },
           );
           setAssignedUsers(res.data);
         } catch (error) {
@@ -110,93 +124,153 @@ function ImporterWiseDetails() {
     getAssignedUsers();
   }, [selectedImporter]);
 
+  // Series from the API: [all, pending, completed, cancelled]. The ring shows the three
+  // parts; "all" is written in the middle.
+  const [allJobs = 0, pendingJobs = 0, completedJobs = 0, cancelledJobs = 0] =
+    Array.isArray(data) ? data : [];
+  const parts = [
+    { label: "Pending jobs", value: pendingJobs, color: "#ea7a1a" },
+    { label: "Completed jobs", value: completedJobs, color: "#0ea44b" },
+    { label: "Cancelled jobs", value: cancelledJobs, color: "#64748b" },
+  ];
+  const ringHasData = parts.some((p) => p.value > 0);
   const donutState = {
-    series: data,
+    series: ringHasData ? parts.map((p) => p.value) : [1],
     options: {
       chart: {
-        width: 380,
         type: "donut",
+        fontFamily: "Inter, system-ui, sans-serif",
+        sparkline: { enabled: true },
       },
-      labels: ["All Jobs", "Pending Jobs", "Completed Jobs", "Cancelled Jobs"],
-      plotOptions: {
-        pie: {
-          startAngle: -90,
-          endAngle: 270,
-        },
-      },
-      dataLabels: {
-        enabled: false,
-      },
-      legend: {
-        formatter: function (val, opts) {
-          return val + " - " + opts.w.globals.series[opts.seriesIndex];
-        },
-        position: "right",
-      },
-      responsive: [
-        {
-          breakpoint: 1320,
-          options: {
-            chart: {
-              width: "100%",
-            },
-            legend: {
-              position: "bottom",
-            },
-          },
-        },
-      ],
-
-      colors: ["#2196F3", "#FEAF1A", "#00E4C5", "#FF6378"],
-      fill: {
-        type: "gradient",
-        gradient: {
-          shade: "light",
-          type: "vertical",
-          shadeIntensity: 0.12,
-          gradientToColors: ["#1976D2", "#FFA000", "#00E4C5", "#D32F2F"],
-          inverseColors: false,
-          opacityFrom: 1,
-          opacityTo: 0.75,
-          stops: [0, 50, 75, 100],
-        },
-      },
+      labels: ringHasData ? parts.map((p) => p.label) : ["No jobs"],
+      colors: ringHasData ? parts.map((p) => p.color) : ["#e4e8f0"],
+      stroke: { width: 0 },
+      plotOptions: { pie: { donut: { size: "74%" } } },
+      dataLabels: { enabled: false },
+      legend: { show: false },
+      tooltip: { enabled: ringHasData },
+      states: { hover: { filter: { type: "none" } } },
     },
   };
 
   const importerNames = getUniqueImporterNames(importerData);
 
+  // Handling by: everyone assigned to this importer, first few as chips, the rest behind "+n more"
+  const [showAllPeople, setShowAllPeople] = useState(false);
+  const PEOPLE_PREVIEW = 12;
+  const AVATAR_COLORS = [
+    "#2563eb",
+    "#7c3aed",
+    "#0891b2",
+    "#16a34a",
+    "#ea7a1a",
+    "#db2777",
+    "#4f46e5",
+    "#0d9488",
+  ];
+  const initials = (name) =>
+    String(name || "")
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((w) => w[0])
+      .join("")
+      .toUpperCase();
+  const people = showAllPeople
+    ? assignedUsers
+    : assignedUsers.slice(0, PEOPLE_PREVIEW);
+  const hiddenPeople = assignedUsers.length - PEOPLE_PREVIEW;
+
   return (
-    <>
-      <Autocomplete
-        disablePortal
-        fullWidth
-        options={importerNames}
-        getOptionLabel={(option) => option.label}
-        value={
-          importerNames.find(
-            (option) =>
-              (option.label || "").trim().toLowerCase() ===
-              (selectedImporter || "").trim().toLowerCase()
-          ) || null
-        }
-        onChange={handleImporterChange}
-        renderInput={(params) => (
-          <TextField {...params} size="small" label="Select importer" />
-        )}
-      />
-      {assignedUsers.length > 0 && (
-        <div style={{ marginTop: "10px", fontWeight: "bold" }}>
-          Handling By: {assignedUsers.join(", ")}
+    <div className="dsr-dash-grid">
+      <section className="dsr-panel">
+        <h3 className="dsr-panel__title">Importer-wise jobs</h3>
+        <label className="dsr-panel__label">Importer</label>
+        <Autocomplete
+          disablePortal
+          fullWidth
+          className="dsr-importer"
+          options={importerNames}
+          getOptionLabel={(option) => option.label}
+          value={
+            importerNames.find(
+              (option) =>
+                (option.label || "").trim().toLowerCase() ===
+                (selectedImporter || "").trim().toLowerCase(),
+            ) || null
+          }
+          onChange={handleImporterChange}
+          renderInput={(params) => (
+            <TextField {...params} size="small" placeholder="Select importer" />
+          )}
+        />
+        <div className="dsr-ring">
+          <div className="dsr-ring__chart">
+            <ReactApexChart
+              options={donutState.options}
+              series={donutState.series}
+              type="donut"
+              width={190}
+              height={190}
+            />
+            <div className="dsr-ring__center">
+              <b>{allJobs}</b>
+              <span>All jobs</span>
+            </div>
+          </div>
+          <ul className="dsr-ring__legend">
+            {parts.map((p) => (
+              <li key={p.label}>
+                <i style={{ background: p.color }} />
+                <span>{p.label}</span>
+                <b>{p.value}</b>
+              </li>
+            ))}
+          </ul>
         </div>
-      )}
-      <ReactApexChart
-        options={donutState.options}
-        series={donutState.series}
-        type="donut"
-        width={500}
-      />
-    </>
+      </section>
+
+      <section className="dsr-panel">
+        <div className="dsr-panel__head">
+          <h3 className="dsr-panel__title">Handling by</h3>
+          {assignedUsers.length > 0 && (
+            <span className="dsr-panel__meta">
+              {assignedUsers.length}{" "}
+              {assignedUsers.length === 1 ? "person" : "people"}
+            </span>
+          )}
+        </div>
+        {assignedUsers.length === 0 ? (
+          <p className="dsr-panel__empty">
+            No one is assigned to this importer.
+          </p>
+        ) : (
+          <div className="dsr-people">
+            {people.map((name, i) => (
+              <span key={`${name}-${i}`} className="dsr-person">
+                <i
+                  style={{
+                    background: AVATAR_COLORS[i % AVATAR_COLORS.length],
+                  }}
+                >
+                  {initials(name)}
+                </i>
+                {name}
+              </span>
+            ))}
+            {hiddenPeople > 0 && (
+              <button
+                type="button"
+                className="dsr-person dsr-person--more"
+                onClick={() => setShowAllPeople((v) => !v)}
+              >
+                {showAllPeople ? "Show less" : `+${hiddenPeople} more`}
+              </button>
+            )}
+          </div>
+        )}
+      </section>
+    </div>
   );
 }
 

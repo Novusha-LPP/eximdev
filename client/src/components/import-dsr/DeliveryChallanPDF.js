@@ -7,7 +7,7 @@ import {
   Button,
   Box,
 } from '@mui/material';
-import DownloadIcon from '@mui/icons-material/Download';
+import DownloadIcon from '@mui/icons-material/FileDownloadOutlined';
 
 const DeliveryChallanPdf = ({ year, jobNo, branch_code, trade_type, mode, containerIndex = 0, renderAsIcon = false }) => {
 
@@ -393,7 +393,7 @@ const DeliveryChallanPdf = ({ year, jobNo, branch_code, trade_type, mode, contai
           }}
         >
           <abbr title="Download Delivery Challan">
-            <DownloadIcon fontSize="inherit" />
+            <DownloadIcon fontSize="inherit" className="ic-challan" />
           </abbr>
         </IconButton>
       ) : (

@@ -1,13 +1,14 @@
 import React, { useCallback, useMemo, useState, useEffect, useContext } from "react";
 import FileUpload from "./FileUpload";
-import { FaUpload } from "react-icons/fa";
+import FileUploadOutlinedIcon from "@mui/icons-material/FileUploadOutlined";
 import axios from "axios";
 import { IconButton } from "@mui/material";
-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import ContentCopyIcon from "@mui/icons-material/ContentCopyOutlined";
+import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
 import BEStatusModal from "../../customHooks/BeStatus"; // Import the modal component
 import { BranchContext } from "../../contexts/BranchContext";
 
-const BENumberCell = ({ cell, onDocumentsUpdated, module, copyFn }) => {
+const BENumberCell = ({ cell, onDocumentsUpdated, module, copyFn, compact = false }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedBE, setSelectedBE] = useState(null);
   const [activeUpload, setActiveUpload] = useState(null);
@@ -174,7 +175,7 @@ const BENumberCell = ({ cell, onDocumentsUpdated, module, copyFn }) => {
           }}
           title={`Upload ${title}`}
         >
-          <FaUpload size={14} />
+          <FileUploadOutlinedIcon sx={{ fontSize: 17 }} />
         </button>
 
         {isActive && (
@@ -226,7 +227,29 @@ const BENumberCell = ({ cell, onDocumentsUpdated, module, copyFn }) => {
   };
 
   // Render document links with proper indexing
-  const renderDocumentLinks = (documents, baseLabel) => {
+  // `compact` (job list cards): a short name with one numbered link per file, so every file stays reachable
+  const renderDocumentLinks = (documents, baseLabel, shortLabel) => {
+    if (compact) {
+      const count = documents ? documents.length : 0;
+      return (
+        <div className={`be-doc be-doc--${shortLabel.split(" ")[0].toLowerCase()}${count ? "" : " be-doc--none"}`}>
+          <DescriptionOutlinedIcon className="be-doc__icon" fontSize="inherit" />
+          <span className="be-doc__name">{count ? shortLabel : `No ${shortLabel}`}</span>
+          {documents?.map((doc, index) => (
+            <a
+              key={index}
+              className="be-doc__n"
+              href={doc}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={`${baseLabel} ${index + 1}`}
+            >
+              {index + 1}
+            </a>
+          ))}
+        </div>
+      );
+    }
     if (!documents || documents.length === 0) {
       return <span style={{ color: "gray" }}>No {baseLabel}</span>;
     }
@@ -293,14 +316,18 @@ const BENumberCell = ({ cell, onDocumentsUpdated, module, copyFn }) => {
               </IconButton>
             </div>
 
-            <span>{beDate}</span>
+            <span className={compact ? "be-date" : undefined}>
+              {compact && !Number.isNaN(new Date(beDate).getTime())
+                ? new Date(beDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }).replace("Sept", "Sep")
+                : beDate}
+            </span>
           </div>
         )}
 
         {/* Processed Copy of BOE */}
         <div style={{ marginTop: "10px", display: "flex", alignItems: "center" }}>
           <div style={{ flex: 1 }}>
-            {renderDocumentLinks(processedBeFiles, "Processed Copy of BOE")}
+            {renderDocumentLinks(processedBeFiles, "Processed Copy of BOE", "Processed BoE")}
           </div>
           {renderUploadButton("processed_be_attachment", "BE Copy")}
         </div>
@@ -312,7 +339,7 @@ const BENumberCell = ({ cell, onDocumentsUpdated, module, copyFn }) => {
               style={{ marginTop: "10px", display: "flex", alignItems: "center" }}
             >
               <div style={{ flex: 1 }}>
-                {renderDocumentLinks(oocFiles, "OOC Copy")}
+                {renderDocumentLinks(oocFiles, "OOC Copy", "OOC copy")}
               </div>
               {renderUploadButton("ooc_copies", "OOC Copy")}
             </div>
@@ -322,7 +349,7 @@ const BENumberCell = ({ cell, onDocumentsUpdated, module, copyFn }) => {
               style={{ marginTop: "10px", display: "flex", alignItems: "center" }}
             >
               <div style={{ flex: 1 }}>
-                {renderDocumentLinks(gatePassFiles, "Gate Pass")}
+                {renderDocumentLinks(gatePassFiles, "Gate Pass", "Gate pass")}
               </div>
               {renderUploadButton("gate_pass_copies", "Gate Pass")}
             </div>

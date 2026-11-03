@@ -59,30 +59,30 @@ const Swatch = ({ color, label }) => (
   </Box>
 );
 
-// Job number badge colours (rules from ExpandedJobDetails.js)
+// Urgency tag colours on each job card (same rules as the old job-number badge, see getJobUrgency)
 const URGENCY_RULES = [
   {
     when: "Estimated Time of Arrival",
     rows: [
-      ["#ff1111", "Vessel arrives today"],
-      ["#f85a5a", "Arrives in 1–2 days"],
-      ["#fd8e8e", "Arrives in 3–5 days"],
+      ["#ef1c1c", "Vessel arrives today"],
+      ["#f87171", "Arrives in 1–2 days"],
+      ["#fca5a5", "Arrives in 3–5 days"],
     ],
   },
   {
     when: "BE Noted, Clearance Pending · PCV Done, Duty Payment Pending · Custom Clearance Completed",
     rows: [
-      ["yellow", "Detention starts in 3 days"],
-      ["orange", "Detention starts in 2 days"],
-      ["red", "Detention starts tomorrow"],
-      ["darkred", "Detention has started"],
+      ["#facc15", "Detention starts in 3 days"],
+      ["#f59e0b", "Detention starts in 2 days"],
+      ["#e5484d", "Detention starts tomorrow"],
+      ["#8f1d1d", "Detention has started"],
     ],
   },
   {
     when: "Billing Pending (FCL: empty container off-load date · LCL: delivery date)",
     rows: [
-      ["orange", "6–10 days ago"],
-      ["red", "More than 10 days ago"],
+      ["#f59e0b", "6–10 days ago"],
+      ["#e5484d", "More than 10 days ago"],
     ],
   },
 ];

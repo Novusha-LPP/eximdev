@@ -12,13 +12,12 @@ import "../../styles/job-list.scss";
 import useJobColumns from "../../customHooks/useJobColumns";
 import TableRowsIcon from "@mui/icons-material/TableRows";
 import ViewHeadlineIcon from "@mui/icons-material/ViewHeadline";
-import {
-  getTableRowsClassname,
-  getTableRowInlineStyle,
-} from "../../utils/getTableRowsClassname";
+import { getTableRowsClassname } from "../../utils/getTableRowsClassname";
 import useFetchJobList from "../../customHooks/useFetchJobList";
 import { detailedStatusOptions } from "../../assets/data/detailedStatusOptions";
 import JobColorOrderHelp from "./JobColorOrderHelp";
+import StatusFilterSelect from "./StatusFilterSelect";
+import { getJobStatusStyle } from "../../utils/jobStatusStyle";
 import { JobSearchBox, ImporterFilter } from "./JobListFilterInputs";
 
 import { UserContext } from "../../contexts/UserContext";
@@ -35,7 +34,6 @@ import {
 import axios from "axios";
 import { MaterialReactTable, useMaterialReactTable } from "material-react-table";
 import { Dialog, DialogContent, DialogTitle, Button, Tooltip, DialogActions, Chip, CircularProgress } from "@mui/material";
-import useMediaQuery from "@mui/material/useMediaQuery";
 import MyDocRequests from "../document-collection/MyDocRequests";
 import DownloadIcon from "@mui/icons-material/Download";
 import AssignmentIcon from "@mui/icons-material/Assignment";
@@ -50,6 +48,8 @@ import { BranchContext } from "../../contexts/BranchContext.js";
 import useDynamicICDs from "../../customHooks/useDynamicICDs";
 
 // Full/Shrink labels: shown on phones/tablets (own row) and very wide screens; icon-only in between (tooltips explain)
+// Menus open in a portal, so they get the list font through this class
+const POPUP_PROPS = { MenuProps: { className: "jl-popup" } };
 const toggleLabelSx = { display: { xs: "inline", md: "none" }, "@media (min-width:1800px)": { display: "inline" } };
 
 // Extra "Select Status" choice: jobs whose DO Planning date is in the current month, earliest planned date first
@@ -65,6 +65,9 @@ const statusFilterOptions = (() => {
 // Table height on desktops: the space left on screen, but never shorter than the previous fixed
 // height, so short screens keep the old behaviour (scroll the page to see more of the table)
 const MIN_TABLE_HEIGHT = 690;
+
+// Rows per page: the same limit useFetchJobList puts in the request (used for the "Showing x–y" text)
+const JOBS_PER_PAGE = 50;
 
 // Subcomponent for Raise Query Dialog to isolate text input state and eliminate typing lag
 const RaiseQueryDialogContent = React.memo(({
@@ -962,13 +965,17 @@ function JobList(props) {
     [rows]
   );
 
+  // Each job is drawn as a card: its status colour reaches the CSS (job-list.scss) through these variables
   const getRowProps = useMemo(
     () =>
-      ({ row }) => ({
-        className: getTableRowsClassname(row),
-        style: getTableRowInlineStyle(row),
-        sx: { textAlign: "center" },
-      }),
+      ({ row }) => {
+        const statusStyle = getJobStatusStyle(row.original?.detailed_status);
+        return {
+          className: `job-card-row ${getTableRowsClassname(row)}`.trim(),
+          style: { "--st": statusStyle.bar, "--st-bg": statusStyle.bg, "--st-ink": statusStyle.ink },
+          sx: { textAlign: "left" },
+        };
+      },
     [rows, refreshTrigger]
   );
 
@@ -1171,6 +1178,7 @@ function JobList(props) {
     () => (
       // Filters wrap onto more lines on narrow screens instead of being pushed off-screen
       <Box
+        className="job-toolbar"
         sx={{
           display: "flex",
           flexWrap: "wrap",
@@ -1183,11 +1191,9 @@ function JobList(props) {
         }}
       >
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: { xs: "1 1 100%", md: "0 0 auto" }, mr: { md: 0.5 } }}>
-          <Typography
-            variant="body1"
-            sx={{ fontWeight: "bold", fontSize: { xs: "1.2rem", md: "1.3rem", xl: "1.5rem" }, whiteSpace: "nowrap" }}
-          >
-            {props.status} Jobs: {total}
+          <Typography variant="body1" component="h2" className="jt-title">
+            {String(props.status).replace(/_/g, " ")} Jobs
+            <span className="jt-count">{total}</span>
           </Typography>
         </Box>
 
@@ -1198,6 +1204,7 @@ function JobList(props) {
           label="ICD Code"
           value={selectedICD}
           onChange={handleICDChange}
+          SelectProps={POPUP_PROPS}
           sx={{ flex: { xs: "1 1 calc(50% - 4px)", sm: "1 1 118px" }, maxWidth: { sm: 180 } }}
         >
           <MenuItem value="all">All ICDs</MenuItem>
@@ -1217,6 +1224,7 @@ function JobList(props) {
           label="Type of BE"
           value={selectedBeType}
           onChange={handleBeTypeChange}
+          SelectProps={POPUP_PROPS}
           sx={{ flex: { xs: "1 1 calc(50% - 4px)", sm: "1 1 148px" }, maxWidth: { sm: 200 } }}
         >
           <MenuItem value="all">All BE Types</MenuItem>
@@ -1240,6 +1248,7 @@ function JobList(props) {
             size="small"
             value={selectedYearState}
             onChange={handleYearChange}
+            SelectProps={POPUP_PROPS}
             sx={{ flex: { xs: "1 1 calc(50% - 4px)", sm: "1 1 95px" }, maxWidth: { sm: 130 } }}
           >
             {years.map((y, i) => (
@@ -1255,6 +1264,7 @@ function JobList(props) {
           size="small"
           value={selectedMode}
           onChange={(e) => setSelectedMode(e.target.value)}
+          SelectProps={POPUP_PROPS}
           sx={{ flex: { xs: "1 1 calc(50% - 4px)", sm: "1 1 125px" }, maxWidth: { sm: 165 } }}
         >
           <MenuItem value="all">All Modes</MenuItem>
@@ -1263,20 +1273,13 @@ function JobList(props) {
         </TextField>
 
         {/* Status and its help icon wrap together, so the icon is never left alone on a line */}
-        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, flex: { xs: "1 1 100%", sm: "1 1 205px" }, maxWidth: { sm: 315 } }}>
-          <TextField
-            select
-            size="small"
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, flex: { xs: "1 1 100%", sm: "1 1 230px" }, maxWidth: { sm: 330 } }}>
+          <StatusFilterSelect
             value={detailedStatus}
             onChange={handleDetailedStatusChange}
+            options={statusFilterOptions}
             sx={{ flex: 1, minWidth: 0 }}
-          >
-            {statusFilterOptions.map((o, i) => (
-              <MenuItem key={`status-${o.id || o.value || i}`} value={o.value}>
-                {o.name}
-              </MenuItem>
-            ))}
-          </TextField>
+          />
 
           <JobColorOrderHelp />
         </Box>
@@ -1287,10 +1290,10 @@ function JobList(props) {
             display: "flex",
             alignItems: "center",
             gap: 0.5,
-            bgcolor: "#f1f5f9",
-            p: "2px",
-            borderRadius: "8px",
-            border: "1px solid #cbd5e1",
+            bgcolor: "#eef1f7",
+            p: "3px",
+            borderRadius: "10px",
+            border: "1px solid transparent",
             flexShrink: 0,
           }}
         >
@@ -1303,13 +1306,14 @@ function JobList(props) {
                 display: "flex",
                 alignItems: "center",
                 gap: "4px",
-                padding: "5px 9px",
+                padding: "5px 11px",
                 border: "none",
-                borderRadius: "6px",
+                borderRadius: "8px",
                 backgroundColor: viewMode === "full" ? "#ffffff" : "transparent",
                 color: viewMode === "full" ? "#2563eb" : "#64748b",
-                fontWeight: "700",
-                fontSize: "12px",
+                fontWeight: "600",
+                fontSize: "12.5px",
+                fontFamily: "inherit",
                 cursor: "pointer",
                 boxShadow: viewMode === "full" ? "0 1px 2px rgba(0,0,0,0.1)" : "none",
               }}
@@ -1327,13 +1331,14 @@ function JobList(props) {
                 display: "flex",
                 alignItems: "center",
                 gap: "4px",
-                padding: "5px 9px",
+                padding: "5px 11px",
                 border: "none",
-                borderRadius: "6px",
+                borderRadius: "8px",
                 backgroundColor: viewMode === "shrink" ? "#ffffff" : "transparent",
                 color: viewMode === "shrink" ? "#2563eb" : "#64748b",
-                fontWeight: "700",
-                fontSize: "12px",
+                fontWeight: "600",
+                fontSize: "12.5px",
+                fontFamily: "inherit",
                 cursor: "pointer",
                 boxShadow: viewMode === "shrink" ? "0 1px 2px rgba(0,0,0,0.1)" : "none",
               }}
@@ -1345,7 +1350,7 @@ function JobList(props) {
         </Box>
 
         {/* Search and Excel download wrap together */}
-        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, flex: { xs: "1 1 100%", sm: "3 1 195px" } }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, flex: { xs: "1 1 100%", sm: "3 1 210px" } }}>
           {/* Simple search input (no typeahead/suggestions) */}
           <JobSearchBox value={searchQuery} onCommit={setSearchQuery} sx={{ flex: 1, minWidth: 0 }} />
 
@@ -1466,18 +1471,17 @@ function JobList(props) {
     (path) => openJobRef.current(path)
   );
 
-  // On phones the pinned 250px Job No column would leave little room to scroll the rest of the row
-  const isNarrowScreen = useMediaQuery("(max-width:599.95px)", { noSsr: true });
   // Desktop table height, measured so the list fills the screen (see effect below)
   const [tableMaxHeight, setTableMaxHeight] = useState(null);
 
   const table = useMaterialReactTable({
     columns,
     data: sortedRows,
-    enableColumnResizing: true,
-    // Columns stretch to fill spare width on wide screens (they never shrink below their set size)
+    // Rows are cards (strip with the job on top, details below): columns share the width by weight
+    // in job-list.scss, so resizing, re-ordering, grouping and pinning no longer apply
+    enableColumnResizing: false,
     layoutMode: "grid",
-    enableColumnOrdering: true,
+    enableColumnOrdering: false,
     enablePagination: false,
     enableBottomToolbar: false,
     enableDensityToggle: false,
@@ -1487,21 +1491,24 @@ function JobList(props) {
     // Re-render a cell only when its row data or the column definitions change (useJobColumns
     // rebuilds columns whenever view mode, expanded rows or query status change), not on every scroll
     memoMode: "cells",
-    initialState: { density: "compact", columnPinning: { left: isNarrowScreen ? [] : ["job_no"] } },
+    initialState: { density: "compact" },
     enableGlobalFilter: false,
-    enableGrouping: true,
+    enableGrouping: false,
     enableColumnFilters: false,
     enableColumnActions: false,
     enableStickyHeader: true,
-    enablePinning: true,
+    enablePinning: false,
+    muiTablePaperProps: { className: `job-cards job-cards--${viewMode}` },
     muiTableContainerProps: { sx: { maxHeight: { xs: "70vh", md: tableMaxHeight || "690px" }, overflowY: "auto" } },
     // On phones the table's own buttons (columns, full screen) move to their own line under the filters
-    muiTopToolbarProps: { sx: { "& > .MuiBox-root": { flexWrap: { xs: "wrap", sm: "nowrap" } } } },
+    muiTopToolbarProps: { className: "job-top-toolbar", sx: { "& > .MuiBox-root": { flexWrap: { xs: "wrap", sm: "nowrap" } } } },
     muiTableBodyRowProps: ({ row }) => {
       const baseProps = getRowProps({ row });
       if (viewMode === "shrink") {
+        const collapsed = !expandedRowIds[row.original._id];
         return {
           ...baseProps,
+          className: `${baseProps.className} ${collapsed ? "job-card-row--collapsed" : "job-card-row--open"}`,
           style: {
             ...(baseProps.style || {}),
             cursor: "pointer",
@@ -1524,14 +1531,20 @@ function JobList(props) {
       }
       return baseProps;
     },
-    muiTableHeadCellProps: {
+    // data-label: the column name, shown above a cell when the card is narrow and the column headings are hidden
+    muiTableBodyCellProps: ({ column }) => ({
+      "data-col": column.id,
+      "data-label": typeof column.columnDef.header === "string" ? column.columnDef.header : "",
+    }),
+    muiTableHeadCellProps: ({ column }) => ({
+      "data-col": column.id,
       sx: {
         position: "sticky",
         top: 0,
         zIndex: 999,
-        backgroundColor: "#f8fafc",
+        backgroundColor: "#f3f5f9",
       },
-    },
+    }),
     renderTopToolbarCustomActions: renderTopToolbarCustomActions,
   });
 
@@ -1606,13 +1619,25 @@ function JobList(props) {
       {/* Render Query Modals */}
       {renderQueryModals && renderQueryModals()}
 
-      <Pagination
-        count={totalPages}
-        page={currentPage}
-        onChange={(e, page) => handlePageChange(page)}
-        color="primary"
-        sx={{ mt: 2, display: "flex", justifyContent: "center" }}
-      />
+      <div className="job-pager">
+        <span className="job-pager__summary">
+          {total > 0 ? (
+            <>
+              Showing <b>{(currentPage - 1) * JOBS_PER_PAGE + 1}–{Math.min(currentPage * JOBS_PER_PAGE, total)}</b> of{" "}
+              <b>{Number(total).toLocaleString("en-IN")}</b> jobs
+            </>
+          ) : (
+            "No jobs found"
+          )}
+        </span>
+        <Pagination
+          count={totalPages}
+          page={currentPage}
+          onChange={(e, page) => handlePageChange(page)}
+          color="primary"
+          shape="rounded"
+        />
+      </div>
 
       <SelectImporterModal
         open={open}

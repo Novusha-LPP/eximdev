@@ -101,13 +101,12 @@ const SectionCard = ({ title, icon, children, stepIndex, activeStep }) => (
         borderRadius: '12px',
         border: '1px solid',
         borderColor: activeStep === stepIndex ? 'primary.light' : '#eaedf2',
-        background: activeStep === stepIndex ? '#ffffff' : '#f9fbff',
+        background: '#ffffff',
         transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
         overflow: 'hidden',
+        boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)',
         '&:hover': {
-          borderColor: 'primary.main',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
-          transform: 'translateY(-2px)'
+          borderColor: activeStep === stepIndex ? 'primary.light' : '#cfd6e3'
         }
       }}
     >
@@ -118,7 +117,7 @@ const SectionCard = ({ title, icon, children, stepIndex, activeStep }) => (
         alignItems: 'center',
         gap: 1.5,
         borderBottom: '1px solid #eaedf2',
-        background: activeStep === stepIndex ? 'linear-gradient(45deg, #ffffff 30%, #f0f7ff 90%)' : 'transparent'
+        background: '#f8fafc'
       }}>
         <Box sx={{
           color: activeStep === stepIndex ? 'primary.main' : 'text.secondary',
@@ -795,45 +794,46 @@ const ImportCreateJob = () => {
   };
 
   return (
-    <Box sx={{
+    <Box className="nj-shell" sx={{
       minHeight: '100vh',
-      bgcolor: '#f0f2f5',
-      p: { xs: 1, md: 3 },
+      bgcolor: 'transparent',
+      p: { xs: 0.5, md: 1.5 },
       display: 'flex',
       justifyContent: 'center'
     }}>
       <Paper
         elevation={0}
         sx={{
-          borderRadius: '20px',
+          borderRadius: '12px',
           overflow: 'hidden',
           width: '100%',
           maxWidth: '100%',
-          bgcolor: 'transparent',
+          bgcolor: '#ffffff',
+          border: '1px solid #e4e8f0',
+          boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)',
         }}
       >
         <Box sx={{
-          background: 'linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 100%)',
-          color: 'white',
-          p: { xs: 2.5, md: 3.5 },
+          background: '#ffffff',
+          color: '#0f172a',
+          p: { xs: 2, md: 2.5 },
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          borderRadius: '20px 20px 0 0',
-          boxShadow: '0 10px 30px rgba(30, 58, 138, 0.25)'
+          borderRadius: 0
         }}>
           <Box>
-            <Typography variant="h4" fontWeight={800} sx={{ letterSpacing: '-0.02em', mb: 0.5 }}>
+            <Typography variant="h4" fontWeight={800} sx={{ letterSpacing: '-0.02em', mb: 0.5, fontSize: { xs: '1.35rem', md: '1.6rem' } }}>
               Create Import Job
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
               <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: isEditMode ? '#ffca28' : '#4ade80', boxShadow: isEditMode ? '0 0 10px #ffca28' : '0 0 10px #4ade80' }} />
-              <Typography variant="body2" sx={{ opacity: 0.8, fontWeight: 500 }}>
+              <Typography variant="body2" sx={{ color: '#64748b', fontWeight: 500 }}>
                 {isEditMode ? `Editing Job: ${jobNumber || "..."}` : "System Ready • New Job Entry"}
               </Typography>
             </Box>
           </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+          <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1.5, flexWrap: 'wrap' }}>
             {!isEditMode && (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                 {hasDraft && (
@@ -863,10 +863,12 @@ const ImportCreateJob = () => {
                     }
                   }}
                   sx={{
-                    color: '#f87171',
-                    borderColor: 'rgba(248, 113, 113, 0.4)',
+                    color: '#dc2626',
+                    borderColor: '#f3c4c4',
                     textTransform: 'none',
                     borderRadius: '8px',
+                    height: 37,
+                    px: 2,
                     fontWeight: 600,
                     fontSize: '0.8rem',
                     '&:hover': { borderColor: '#f87171', bgcolor: 'rgba(239, 68, 68, 0.1)' }
@@ -878,7 +880,7 @@ const ImportCreateJob = () => {
             )}
 
             <Box sx={{ textAlign: 'right', display: { xs: 'none', md: 'block' } }}>
-              <Typography variant="caption" sx={{ opacity: 0.7, textTransform: 'uppercase', fontWeight: 700 }}>
+              <Typography variant="caption" sx={{ color: '#8793a8', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.06em' }}>
                 Financial Year
               </Typography>
               <Box sx={{ mt: 0.5 }}>
@@ -894,16 +896,16 @@ const ImportCreateJob = () => {
                       sx={{
                         width: 130,
                         '& .MuiOutlinedInput-root': {
-                          bgcolor: 'rgba(255,255,255,0.1)',
-                          color: 'white',
+                          bgcolor: '#f8fafc',
+                          color: '#0f172a',
                           borderRadius: '8px',
                           fontWeight: 600,
                           fontSize: '0.85rem',
-                          '& fieldset': { border: 'none' },
-                          '&:hover': { bgcolor: 'rgba(255,255,255,0.15)' },
+                          '& fieldset': { borderColor: '#cfd6e3' },
+                          '&:hover': { bgcolor: '#f1f5f9' },
                         },
-                        '& .MuiInputBase-input': { color: 'white !important' },
-                        '& .MuiSvgIcon-root': { color: 'white !important' }
+                        '& .MuiInputBase-input': { color: '#0f172a !important' },
+                        '& .MuiSvgIcon-root': { color: '#64748b !important' }
                       }}
                     />
                   )}
@@ -916,8 +918,9 @@ const ImportCreateJob = () => {
         <Box sx={{
           px: 3,
           py: 1.5,
-          bgcolor: 'white',
-          borderBottom: '1px solid #eaedf2',
+          bgcolor: '#f8fafc',
+          borderTop: '1px solid #e4e8f0',
+          borderBottom: '1px solid #e4e8f0',
           display: 'flex',
           justifyContent: 'center'
         }}>
@@ -938,12 +941,14 @@ const ImportCreateJob = () => {
                 <StepLabel
                   StepIconProps={{
                     sx: {
-                      '&.Mui-active': { color: 'primary.main' },
-                      '&.Mui-completed': { color: '#4ade80' }
+                      color: '#cbd5e1 !important',
+                      '&.Mui-active': { color: '#2563eb !important' },
+                      '&.Mui-completed': { color: '#16a34a !important' },
+                      '& .MuiStepIcon-text': { fill: '#ffffff', fontWeight: 700 }
                     }
                   }}
                 >
-                  <Typography variant="caption" fontWeight={activeStep === index ? 700 : 500} color={activeStep === index ? 'primary.main' : 'text.secondary'}>
+                  <Typography variant="caption" fontWeight={activeStep === index ? 700 : 600} sx={{ fontSize: '12.5px', color: activeStep === index ? '#1d4ed8' : '#64748b' }}>
                     {step.label}
                   </Typography>
                 </StepLabel>

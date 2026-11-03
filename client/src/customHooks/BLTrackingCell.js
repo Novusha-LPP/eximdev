@@ -1,8 +1,9 @@
 import React, { useState, useContext } from "react";
 import { IconButton } from "@mui/material";
-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faShip, faAnchor, faLayerGroup } from "@fortawesome/free-solid-svg-icons";
+import ContentCopyIcon from "@mui/icons-material/ContentCopyOutlined";
+import DirectionsBoatOutlinedIcon from "@mui/icons-material/DirectionsBoatOutlined";
+import AnchorOutlinedIcon from "@mui/icons-material/AnchorOutlined";
+import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import BLStatus from "./BLStatus";
 import SeaCargoStatus from "./SeaCargoStatus";
 import AirCargoStatus from "./AirCargoStatus";
@@ -169,7 +170,7 @@ const BLTrackingCell = ({
           {shippingLine && url !== "#" && (
             <abbr title={`Track Shipment at ${shippingLine}`}>
               <a href={url} target="_blank" rel="noopener noreferrer">
-                <FontAwesomeIcon icon={faShip} size="1x" color="blue" />
+                <DirectionsBoatOutlinedIcon sx={{ fontSize: 17, color: "#2563eb" }} />
               </a>
             </abbr>
           )}
@@ -185,7 +186,7 @@ const BLTrackingCell = ({
                 cursor: "pointer",
               }}
             >
-              <FontAwesomeIcon icon={faAnchor} size="1x" color="blue" />
+              <AnchorOutlinedIcon sx={{ fontSize: 17, color: "#2563eb" }} />
             </a>
           </abbr>
 
@@ -201,7 +202,7 @@ const BLTrackingCell = ({
                   cursor: "pointer",
                 }}
               >
-                <FontAwesomeIcon icon={faLayerGroup} size="1x" color="green" />
+                <Inventory2OutlinedIcon sx={{ fontSize: 17, color: "#15803d" }} />
               </a>
             </abbr>
           )}

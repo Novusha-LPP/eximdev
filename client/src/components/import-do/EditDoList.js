@@ -1,4 +1,5 @@
 import React, { useContext, useEffect, useRef, useState } from "react";
+import { snapshotJob, withLoadedBase } from "../../utils/staleSaveBase";
 import { Checkbox, FormControlLabel, Button, Box, CircularProgress } from "@mui/material";
 import { useFormik } from "formik";
 import axios from "axios";
@@ -125,6 +126,7 @@ function EditDoList() {
   const { setCurrentTab } = useContext(TabContext);
   const { user } = useContext(UserContext);
   const [data, setData] = useState(null);
+  const loadedJobRef = useRef(null); // job as loaded, sent back as __base on save
   const [storedSearchParams, setStoredSearchParams] = React.useState(null);
 
   // Store search parameters from location state
@@ -194,6 +196,9 @@ function EditDoList() {
           axios.get(`${process.env.REACT_APP_API_STRING}/get-job/${branch_code}/${trade_type}/${mode}/${year}/${job_no}`),
           axios.get(`${process.env.REACT_APP_API_STRING}/get-kyc-and-bond-status/${jobId}`)
         ]);
+
+        // Only the job (not KYC data) is compared on save
+        loadedJobRef.current = snapshotJob(jobRes.data);
 
         // Merge the data from both APIs
         const mergedData = {
@@ -370,7 +375,7 @@ function EditDoList() {
 
         await axios.patch(
           `${process.env.REACT_APP_API_STRING}/update-do-list`,
-          data,
+          withLoadedBase(data, loadedJobRef.current),
           { headers }
         );
 

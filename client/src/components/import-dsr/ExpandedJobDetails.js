@@ -55,7 +55,7 @@ function ExpandedJobDetails({
     return `${y}/${m}/${d}`;
   }, []);
 
-  // Color logic for Job No
+  // Color logic for Job No (described in JobColorOrderHelp.js: update it if these rules change)
   let bgColor = "";
   let textColor = "blue";
   const currentDate = new Date();
@@ -435,6 +435,7 @@ function ExpandedJobDetails({
                   row: { original: original, id: original._id || "" },
                 }}
                 onRowDataUpdate={handleRowDataUpdate}
+                showDoPlanningDate
               />
             </td>
 

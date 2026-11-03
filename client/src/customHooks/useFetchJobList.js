@@ -1,6 +1,7 @@
 import { useContext, useEffect, useState, useRef } from "react";
 import axios from "axios";
 import { UserContext } from "../contexts/UserContext";
+import { subscribeToJobChanges } from "../utils/jobRealtime";
 
 function useFetchJobList(
   detailedStatus,
@@ -13,12 +14,14 @@ function useFetchJobList(
   unresolvedOnly = false,
   selectedBranch = "all",
   selectedMode = "all",
-  category = "all"
+  category = "all",
+  initialPage = 1,
+  seed = null // rows shown at once when the list comes back from a job, refreshed quietly
 ) {
-  const [rows, setRows] = useState([]);
-  const [total, setTotal] = useState(0);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+  const [rows, setRows] = useState(seed?.data || []);
+  const [total, setTotal] = useState(seed?.total || 0);
+  const [currentPage, setCurrentPage] = useState(initialPage);
+  const [totalPages, setTotalPages] = useState(seed?.totalPages || 1);
   const [loading, setLoading] = useState(false);
   const [userImporters, setUserImporters] = useState([]);
   const [unresolvedCount, setUnresolvedCount] = useState(0);
@@ -34,7 +37,7 @@ function useFetchJobList(
   const CACHE_TTL = 1000 * 60 * 2; // 2 minutes
 
   const makeCacheKey = (page) =>
-    `${selectedYearState}|${status}|${detailedStatus}|${selectedICD}|${selectedImporter || 'all'}|${selectedBeType}|${selectedBranch}|${selectedMode}|${category}|${searchQuery}|${page}`;
+    `${selectedYearState}|${status}|${detailedStatus}|${selectedICD}|${selectedImporter || 'all'}|${selectedBeType}|${selectedBranch}|${selectedMode}|${category}|${searchQuery}|${unresolvedOnly ? 'unresolved' : 'all-jobs'}|${page}`;
 
   const getFromCache = (key) => {
     const e = queryCacheRef.current.get(key);
@@ -74,12 +77,16 @@ function useFetchJobList(
   };
 
   // Accept unresolvedOnly and bypassCache as arguments to fetchJobs
+  const quietFirstFetchRef = useRef(Boolean(seed));
   const fetchJobs = async (page, unresolved = unresolvedOnly, bypassCache = false) => {
-    setLoading(true);
+    // First load after coming back from a job: the seeded rows stay on screen while fresh ones load
+    const quiet = quietFirstFetchRef.current;
+    quietFirstFetchRef.current = false;
+    if (!quiet) setLoading(true);
     const cacheKey = makeCacheKey(page);
 
     // Only use cache if not bypassing
-    if (!bypassCache) {
+    if (!bypassCache && !quiet) {
       const cached = getFromCache(cacheKey);
       if (cached) {
         // Use cached results immediately
@@ -176,7 +183,8 @@ function useFetchJobList(
         userImporters: responseUserImporters,
         unresolvedCount: backendUnresolvedCount,
       } = response.data;
-      setRows(data);
+      // Quiet refresh with the same rows: keep the current ones so nothing is redrawn
+      setRows((prev) => (quiet && JSON.stringify(prev) === JSON.stringify(data) ? prev : data));
       setTotal(total);
       setTotalPages(totalPages);
       setCurrentPage(respPage || page);
@@ -286,6 +294,74 @@ function useFetchJobList(
   ]);
 
   const handlePageChange = (newPage) => setCurrentPage(newPage);
+
+  // Real-time: when someone changes a job shown here, reload just that row.
+  // Any change in this year also drops cached pages so the next page load is fresh.
+  const rowsRef = useRef(rows);
+  rowsRef.current = rows;
+  const visibleIdsKey = rows.map((r) => r?._id).filter(Boolean).join(",");
+
+  useEffect(() => {
+    if (!selectedYearState) return undefined;
+    const jobIds = visibleIdsKey ? visibleIdsKey.split(",") : [];
+    let cancelled = false;
+    const pendingIds = new Set();
+    let timer = null;
+
+    const refreshRows = async () => {
+      timer = null;
+      const ids = new Set(pendingIds);
+      pendingIds.clear();
+      const targets = rowsRef.current.filter((r) => r?._id && ids.has(String(r._id)));
+      if (targets.length === 0) return;
+
+      const fresh = await Promise.all(
+        targets.map((r) =>
+          axios
+            .get(`${process.env.REACT_APP_API_STRING}/get-job/${r.branch_code}/${r.trade_type}/${r.mode}/${r.year}/${r.job_no}`)
+            .then((res) => res.data)
+            .catch(() => null)
+        )
+      );
+      if (cancelled) return;
+
+      const byId = new Map(fresh.filter(Boolean).map((job) => [String(job._id), job]));
+      if (byId.size === 0) return;
+      // Rows are refreshed in place, never removed here: which jobs belong to a filter is decided by
+      // the server (it maps filter names such as "Status Completed" to stored statuses), on next load
+      setRows((prev) =>
+        prev.map((row) => {
+          const job = row?._id ? byId.get(String(row._id)) : null;
+          return job ? { ...row, ...job } : row;
+        })
+      );
+    };
+
+    const queueRefresh = (ids) => {
+      ids.forEach((id) => pendingIds.add(String(id)));
+      if (!timer) timer = setTimeout(refreshRows, 300);
+    };
+
+    const unsubscribe = subscribeToJobChanges({
+      jobIds,
+      years: [String(selectedYearState)],
+      onChange: (change) => {
+        invalidateCache(selectedYearState);
+        if (Array.isArray(change.ids) && change.ids.length > 0) queueRefresh(change.ids);
+      },
+      onReconnect: () => {
+        invalidateCache(selectedYearState);
+        if (jobIds.length > 0) queueRefresh(jobIds);
+      },
+    });
+
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+      unsubscribe();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedYearState, visibleIdsKey]);
 
   // Helper function to check if user can access an importer
   const canAccessImporter = (importerName) => {

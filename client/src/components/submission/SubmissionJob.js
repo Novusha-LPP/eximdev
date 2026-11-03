@@ -1,5 +1,6 @@
 // SubmissionJob.js
 import React, { useState, useEffect, useRef, useContext } from "react";
+import { snapshotJob, withLoadedBase } from "../../utils/staleSaveBase";
 import {
   TextField,
   Box,
@@ -49,6 +50,7 @@ const SubmissionJob = () => {
   const { branch_code, trade_type, mode, job_no, year } = useParams();
   const bl_no_ref = useRef();
   const [data, setData] = useState(null);
+  const loadedJobRef = useRef(null); // job as loaded, sent back as __base on save
   const [verifiedChecklistUploads, setVerifiedChecklistUploads] = useState([]);
   const [submissionQueries, setSubmissionQueries] = useState([]);
   const { user } = useContext(UserContext);
@@ -120,6 +122,7 @@ const SubmissionJob = () => {
       const response = await axios.get(
         `${process.env.REACT_APP_API_STRING}/get-job/${branch_code}/${trade_type}/${mode}/${year}/${job_no}`
       );
+      loadedJobRef.current = snapshotJob(response.data);
       setData(response.data);
       // Initialize uploads if data exists
       if (response.data.checklist) {
@@ -153,7 +156,7 @@ const SubmissionJob = () => {
 
       await axios.patch(
         `${process.env.REACT_APP_API_STRING}/update-submission-job/${branch_code}/${trade_type}/${mode}/${data.job_no}/${data.year}`,
-        payload,
+        withLoadedBase(payload, loadedJobRef.current),
         {
           headers: {
             "user-id": userData._id || user?._id || "unknown",

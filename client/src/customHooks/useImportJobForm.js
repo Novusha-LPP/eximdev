@@ -835,6 +835,8 @@ const useImportJobForm = () => {
           const globalRate = parseFloat(exrate);
 
           if (!curr) return { rate: 1, updated: false };
+          // Ignore partially typed currency codes (e.g. "U", "US")
+          if (String(curr).trim().length < 3) return { rate: rate || "", updated: false };
           if (curr.toUpperCase() === "INR") {
             if (parseFloat(existingRateStr) !== 1) {
               return { rate: 1, updated: true };

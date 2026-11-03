@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import auditPlugin from "../plugins/auditPlugin.mjs";
+import jobChangePlugin from "../plugins/jobChangePlugin.mjs";
 import { type } from "os";
 import { determineDetailedStatus } from "../utils/determineDetailedStatus.mjs";
 import { getRowColorFromStatus } from "../utils/statusColorMapper.mjs";
@@ -1067,7 +1068,8 @@ jobSchema.index({ billing_completed_date: 1, mode: 1, year: 1, bill_document_sen
 jobSchema.index({ branch_id: 1, year: 1, trade_type: 1, mode: 1, sequence_number: -1 });
 jobSchema.index({ branch_id: 1, year: 1, importer: 1 });
 
-jobSchema.plugin(auditPlugin, { documentType: "Job" });
+jobSchema.plugin(auditPlugin, { documentType: "Job", trackQueryUpdates: true, logSystem: true });
+jobSchema.plugin(jobChangePlugin);
 
 const JobModel = new mongoose.model("Job", jobSchema);
 export default JobModel;

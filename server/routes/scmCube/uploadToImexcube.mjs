@@ -9,6 +9,7 @@ import dotenv from "dotenv";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
 import { recalculateLicenseUtilizationForJob } from "../../services/licenseUtilizationService.mjs";
+import requireLoginForWrite from "../../middleware/requireLoginForWrite.mjs";
 
 dotenv.config();
 
@@ -452,7 +453,7 @@ async function buildJobPayload(job_number, isPreview = false, senderID = "SURAJA
  * 2. Authenticates with IMEXCUBE TEST API
  * 3. Pushes the payload to IMEXCUBE CreateJob
  */
-router.post("/api/scmCube/upload-to-imexcube", async (req, res) => {
+router.post("/api/scmCube/upload-to-imexcube", requireLoginForWrite, async (req, res) => {
   const { job_number, customPayload, senderID } = req.body || {};
   try {
     if (!job_number) {

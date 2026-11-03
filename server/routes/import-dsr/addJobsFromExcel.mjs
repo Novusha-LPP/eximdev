@@ -7,6 +7,7 @@ import { generateJobNumber } from "../../services/jobNumberService.mjs";
 import { sanitizeJobPayload } from "../../utils/modeLogic.mjs";
 import { recalculateLicenseUtilizationForJob, validateLicenseUtilization, getUsdImportRate } from "../../services/licenseUtilizationService.mjs";
 import { validateRodtepUtilization } from "../../services/rodtepService.mjs";
+import { publishJobChange } from "../../services/jobChangeBus.mjs";
 
 const getUnitForCurrency = (currencyCode) => {
   if (!currencyCode) return 1;
@@ -530,6 +531,9 @@ router.post(
         console.log(`✅ [Backend] Final chunk written successfully.`);
       }
 
+      // bulkWrite bypasses model hooks: notify open lists and caches
+      publishJobChange({ ids: null, by: req.user?.username, source: "import" });
+
       // Update the last jobs update date
       try {
         const existingDateDocument = await LastJobsDate.findOne();
@@ -593,6 +597,11 @@ router.get("/api/jobs/update-pending-status", async (req, res) => {
     // Step 4: Perform bulkWrite operation if there are jobs to update
     if (bulkOperations.length) {
       await JobModel.bulkWrite(bulkOperations);
+      publishJobChange({
+        ids: bulkOperations.map((op) => op.updateOne?.filter?._id),
+        by: req.user?.username,
+        source: "update",
+      });
       return res.status(200).json({
         message: "Jobs updated successfully.",
         updatedCount: bulkOperations.length,

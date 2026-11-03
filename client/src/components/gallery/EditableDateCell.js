@@ -99,7 +99,9 @@ const addDaysToDate = (dateString, days) => {
 };
 
 // ---------- Component ----------
-const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
+// compact: tighter spacing between dates (used by the Import DSR job list to fit more jobs on screen)
+// showDoPlanningDate: read-only DO Planning date under OOC (only where the list loads that field)
+const EditableDateCell = memo(({ cell, onRowDataUpdate, compact = false, showDoPlanningDate = false }) => {
   const rowData = cell.row.original || {};
   const {
     _id,
@@ -528,10 +530,14 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     </div>
   );
 
+  // Default layout separates dates with blank lines; compact stacks them with a small gap
+  const lineBreak = compact ? null : <br />;
+  const columnStyle = compact ? { display: "flex", flexDirection: "column", gap: 12 } : undefined;
+
   return (
     <div style={{ display: "flex", gap: 20 }}>
       {/* Left */}
-      <div>
+      <div style={columnStyle}>
         {!isExBond && (
           <>
             {renderRowDateEditor(
@@ -539,7 +545,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
               dates.vessel_berthing,
               "vessel_berthing"
             )}
-            <br />
+            {lineBreak}
             {activeBranchConfig.gateway_igm_date_enabled && (
               <>
                 {renderRowDateEditor(
@@ -547,7 +553,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
                   dates.gateway_igm_date,
                   "gateway_igm_date"
                 )}
-                <br />
+                {lineBreak}
               </>
             )}
             {!activeBranchConfig.gateway_igm_date_enabled && (
@@ -557,7 +563,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
                   dates.igm_date,
                   "igm_date"
                 )}
-                <br />
+                {lineBreak}
               </>
             )}
             {renderRowDateEditor(
@@ -565,19 +571,22 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
               dates.discharge_date,
               "discharge_date"
             )}
-            <br />
+            {lineBreak}
 
             {!isExBond &&
               !isLCL &&
               !isAirMode(mode) &&
-              activeBranchConfig.railout_enabled &&
-              containers.map((c, i) =>
-                renderContainerEditor(
-                  "Rail-out",
-                  c.container_rail_out_date,
-                  "container_rail_out_date",
-                  i
-                )
+              activeBranchConfig.railout_enabled && (
+                <div>
+                  {containers.map((c, i) =>
+                    renderContainerEditor(
+                      "Rail-out",
+                      c.container_rail_out_date,
+                      "container_rail_out_date",
+                      i
+                    )
+                  )}
+                </div>
               )}
 
             {isLCL &&
@@ -590,22 +599,25 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
                   i
                 )
               )}
-            <br />
+            {lineBreak}
 
-            {!isExBond &&
-              containers.map((c, i) =>
-                renderContainerEditor(
-                  "Arrival",
-                  c.arrival_date,
-                  "arrival_date",
-                  i,
-                  true
-                )
-              )}
+            {!isExBond && (
+              <div>
+                {containers.map((c, i) =>
+                  renderContainerEditor(
+                    "Arrival",
+                    c.arrival_date,
+                    "arrival_date",
+                    i,
+                    true
+                  )
+                )}
+              </div>
+            )}
 
-            <br />
+            {lineBreak}
             {!isLCL && !isAirMode(mode) && (
-              <div style={{ marginBottom: 10 }}>
+              <div style={{ marginBottom: compact ? 0 : 10 }}>
                 <strong>Free time:</strong>{" "}
                 <TextField
                   select
@@ -624,32 +636,34 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
               </div>
             )}
 
-            <br />
+            {lineBreak}
             {!isLCL && !isExBond && !isAirMode(mode) && (
               <>
-                <strong>Detention F.:</strong>
-                {containers.map((c, i) => (
-                  <div key={`det-${i}`}>
-                    {formatDateDisplay(c.detention_from)}
-                  </div>
-                ))}
+                <div>
+                  <strong>Detention F.:</strong>
+                  {containers.map((c, i) => (
+                    <div key={`det-${i}`}>
+                      {formatDateDisplay(c.detention_from)}
+                    </div>
+                  ))}
+                </div>
               </>
             )}
-            <br />
+            {lineBreak}
           </>
         )}
       </div>
 
       {/* Right */}
-      <div>
+      <div style={columnStyle}>
         {renderRowDateEditor(
           "Assessment Date",
           dates.assessment_date,
           "assessment_date"
         )}
-        <br />
+        {lineBreak}
         {renderRowDateEditor("PCV", dates.pcv_date, "pcv_date")}
-        <br />
+        {lineBreak}
 
         {payment_method !== "Deferred" && !InBondflag && (
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -705,56 +719,25 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
             {dateError && <div style={styles.errorText}>{dateError}</div>}
           </div>
         )}
-        <br />
+        {lineBreak}
         {renderRowDateEditor("OOC", dates.out_of_charge, "out_of_charge")}
-        <br />
+        {lineBreak}
+        {/* Shown after OOC by position only; set by ticking DO Planning on the job page */}
+        {showDoPlanningDate && (
+          <>
+            <div>
+              <strong>DO Planning:</strong> {formatDateDisplay(rowData.do_planning_date)}
+            </div>
+            {lineBreak}
+          </>
+        )}
 
         {isFactory ? (
           <>
             {/* Delivery then EmptyOff */}
             <>
-              <br />
-              {containers.map((c, i) =>
-                renderContainerEditor(
-                  "Delivery",
-                  c.delivery_date,
-                  "delivery_date",
-                  i
-                )
-              )}
-            </>
-
-            <br />
-
-
-            {!isLCL &&
-              !isExBond &&
-              !isAirMode(mode) &&
-              containers.map((c, i) =>
-                renderContainerEditor(
-                  "EmptyOff",
-                  c.emptyContainerOffLoadDate,
-                  "emptyContainerOffLoadDate",
-                  i
-                )
-              )}
-          </>
-        ) : (
-          <>
-            {!isLCL &&
-              !isExBond &&
-              !isAirMode(mode) &&
-              containers.map((c, i) =>
-                renderContainerEditor(
-                  "Destuffing Date / EmptyOff",
-                  c.emptyContainerOffLoadDate,
-                  "emptyContainerOffLoadDate",
-                  i
-                )
-              )}
-            {!InBondflag && (
-              <>
-                <br />
+              {lineBreak}
+              <div>
                 {containers.map((c, i) =>
                   renderContainerEditor(
                     "Delivery",
@@ -763,11 +746,57 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
                     i
                   )
                 )}
+              </div>
+            </>
+
+            {lineBreak}
+
+
+            {!isLCL && !isExBond && !isAirMode(mode) && (
+              <div>
+                {containers.map((c, i) =>
+                  renderContainerEditor(
+                    "EmptyOff",
+                    c.emptyContainerOffLoadDate,
+                    "emptyContainerOffLoadDate",
+                    i
+                  )
+                )}
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            {!isLCL && !isExBond && !isAirMode(mode) && (
+              <div>
+                {containers.map((c, i) =>
+                  renderContainerEditor(
+                    "Destuffing Date / EmptyOff",
+                    c.emptyContainerOffLoadDate,
+                    "emptyContainerOffLoadDate",
+                    i
+                  )
+                )}
+              </div>
+            )}
+            {!InBondflag && (
+              <>
+                {lineBreak}
+                <div>
+                  {containers.map((c, i) =>
+                    renderContainerEditor(
+                      "Delivery",
+                      c.delivery_date,
+                      "delivery_date",
+                      i
+                    )
+                  )}
+                </div>
               </>
             )}
           </>
         )}
-        <br />
+        {lineBreak}
       </div>
 
       <IgstModal
@@ -827,7 +856,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
 });
 
 const styles = {
-  icon: { cursor: "pointer", marginLeft: 5, fontSize: 18, color: "#282828" },
+  icon: { cursor: "pointer", marginLeft: 5, fontSize: 18, color: "#282828", verticalAlign: "middle" },
   errorInput: { border: "1px solid red" },
   errorText: { color: "red", fontSize: 12, marginTop: 2 },
   submitButton: {

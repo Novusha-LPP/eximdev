@@ -15,6 +15,8 @@ const auditTrailSchema = new mongoose.Schema(
     // Job specific identifiers for easier tracking
     job_no: { type: String },
     year: { type: String },
+    trade_type: { type: String },
+    mode: { type: String },
 
     // Branch information for isolation
     branchId: {
@@ -81,6 +83,7 @@ const auditTrailSchema = new mongoose.Schema(
 // Compound indexes for efficient querying
 auditTrailSchema.index({ documentId: 1, timestamp: -1 });
 auditTrailSchema.index({ job_no: 1, year: 1, timestamp: -1 });
+auditTrailSchema.index({ documentType: 1, year: 1, documentId: 1, timestamp: -1 });
 auditTrailSchema.index({ username: 1, timestamp: -1 });
 auditTrailSchema.index({ branchId: 1, timestamp: -1 });
 auditTrailSchema.index({ branch_code: 1, timestamp: -1 });
@@ -88,6 +91,24 @@ auditTrailSchema.index({ action: 1, timestamp: -1 });
 auditTrailSchema.index({ documentType: 1, timestamp: -1 });
 auditTrailSchema.index({ timestamp: -1 });
 auditTrailSchema.index({ timestamp: -1, createdAt: -1 });
+
+// Audit entries are append-only: a logged change can never be edited or replaced
+const immutable = function (next) {
+  next(new Error("Audit trail entries are immutable"));
+};
+["updateOne", "updateMany", "findOneAndUpdate", "findOneAndReplace", "replaceOne"].forEach((op) => auditTrailSchema.pre(op, immutable));
+auditTrailSchema.pre("save", function (next) {
+  if (!this.isNew) return next(new Error("Audit trail entries are immutable"));
+  next();
+});
+// Job history is the legal record of a shipment; it can't be bulk-deleted
+["deleteOne", "deleteMany", "findOneAndDelete"].forEach((op) =>
+  auditTrailSchema.pre(op, function (next) {
+    const type = this.getFilter()?.documentType;
+    if (type === undefined || type === "Job") return next(new Error("Job audit entries cannot be deleted"));
+    next();
+  })
+);
 
 const AuditTrailModel = mongoose.model("AuditTrail", auditTrailSchema);
 export default AuditTrailModel;

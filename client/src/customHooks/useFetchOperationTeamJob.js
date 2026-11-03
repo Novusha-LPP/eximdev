@@ -1,4 +1,5 @@
-import { useEffect, useState, useContext } from "react";
+import { useEffect, useState, useContext, useRef } from "react";
+import { snapshotJob, withLoadedBase } from "../utils/staleSaveBase";
 import { useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import { useFormik } from "formik";
@@ -9,6 +10,7 @@ import { validateTareWeight } from "../utils/handleTareWeightChange";
 
 function useFetchOperationTeamJob(params) {
   const [data, setData] = useState(null);
+  const loadedJobRef = useRef(null); // job as loaded, sent back as __base on save
   const location = useLocation();
   const { setCurrentTab, currentTab } = useContext(TabContext);
   const { user } = useContext(UserContext); // Access user from context
@@ -53,6 +55,7 @@ function useFetchOperationTeamJob(params) {
           url = `${process.env.REACT_APP_API_STRING}/get-job/${params.mode}/${params.year}/${params.job_no}`;
         }
         const response = await axios.get(url);
+        loadedJobRef.current = snapshotJob(response.data);
         setData(response.data);
       } catch (error) {
         console.error("Error fetching job details:", error);
@@ -151,7 +154,7 @@ function useFetchOperationTeamJob(params) {
 
         await axios.patch(
           `${process.env.REACT_APP_API_STRING}/update-operations-job/${params.branch_code}/${params.trade_type}/${params.mode}/${params.year}/${params.job_no}`,
-          { ...values, _id: data?._id },
+          withLoadedBase({ ...values, _id: data?._id }, loadedJobRef.current),
           {
             headers: {
               'username': username,

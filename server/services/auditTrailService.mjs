@@ -72,6 +72,28 @@ export function findChanges(oldDoc, newDoc, parentPath = "", changes = []) {
     }
 
     if (Array.isArray(oldDoc) && Array.isArray(newDoc)) {
+        const idOf = (item) => (item && typeof item === "object" && item._id ? String(item._id) : null);
+        const keyed = oldDoc.every((x) => idOf(x)) && newDoc.every((x) => idOf(x));
+
+        if (keyed) {
+            // Items carry an _id: match them by identity so removing/reordering one row
+            // doesn't make every following row look modified.
+            const oldById = new Map(oldDoc.map((x) => [idOf(x), x]));
+            const newById = new Map(newDoc.map((x) => [idOf(x), x]));
+            newDoc.forEach((item, i) => {
+                const currentPath = parentPath ? `${parentPath}.${i}` : `${i}`;
+                const prev = oldById.get(idOf(item));
+                if (!prev) changes.push({ field: currentPath, fieldPath: currentPath, oldValue: undefined, newValue: item, changeType: "ADDED" });
+                else findChanges(prev, item, currentPath, changes);
+            });
+            oldDoc.forEach((item, i) => {
+                if (newById.has(idOf(item))) return;
+                const currentPath = parentPath ? `${parentPath}.${i}` : `${i}`;
+                changes.push({ field: currentPath, fieldPath: currentPath, oldValue: item, newValue: undefined, changeType: "REMOVED" });
+            });
+            return changes;
+        }
+
         const maxLength = Math.max(oldDoc.length, newDoc.length);
         for (let i = 0; i < maxLength; i++) {
             const currentPath = parentPath ? `${parentPath}.${i}` : `${i}`;

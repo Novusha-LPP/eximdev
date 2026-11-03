@@ -8,6 +8,7 @@ import JobModel from "../../model/jobModel.mjs";
 import LicenseUtilizationModel from "../../model/licenseUtilizationModel.mjs";
 import { recalculateLicenseUtilization } from "../../services/licenseUtilizationService.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
+import requireLoginForWrite from "../../middleware/requireLoginForWrite.mjs";
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -640,7 +641,7 @@ router.post("/api/add-authorization-registration", async (req, res) => {
 });
 
 // PUT update authorization registration
-router.put("/api/update-authorization-registration/:id", async (req, res) => {
+router.put("/api/update-authorization-registration/:id", requireLoginForWrite, async (req, res) => {
   try {
     const updated = await AuthorizationRegistrationModel.findByIdAndUpdate(
       req.params.id,

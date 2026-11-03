@@ -1,9 +1,12 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
+import staleSaveGuard from "../../middleware/staleSaveGuard.mjs";
+import fieldAllowList from "../../middleware/fieldAllowList.mjs";
 import { determineDetailedStatus } from "../../utils/determineDetailedStatus.mjs";
 import { getRowColorFromStatus } from "../../utils/statusColorMapper.mjs";
 import AuthorizationRegistrationModel from "../../model/authorizationRegistrationModel.mjs";
+import requireLoginForWrite from "../../middleware/requireLoginForWrite.mjs";
 
 const router = express.Router();
 
@@ -31,7 +34,25 @@ const extractJobInfo = async (req, res, next) => {
   }
 };
 
-router.patch("/api/update-operations-job/:branch_code/:trade_type/:mode/:year/:job_no", extractJobInfo, auditMiddleware("Job"), async (req, res) => {
+// Fields the Operations job page and the examination planning list send
+const checkOperationsFields = fieldAllowList("update-operations-job", [
+  "_id", "bg_expiry_date", "bg_number", "bond_expiry_date", "bond_number", "cfs_name", "completedOperation",
+  "completed_operation_date", "concor_gate_pass_date", "concor_gate_pass_validate_up_to",
+  "concor_invoice_and_receipt_copy", "container_images", "container_nos", "custodian_gate_pass",
+  "delivery_chalan_file", "delivery_date", "documents_received_date", "documents_send_to_accounts",
+  "documents_send_to_icd", "do_revalidation", "dsr_queries", "examination_date", "out_of_charge",
+  "pcv_date", "weighment_slip_images",
+]);
+
+// Same job filter the handler uses
+const guardStaleSave = staleSaveGuard((req) => {
+  const { branch_code, trade_type, mode, year, job_no } = req.params;
+  const query = { branch_code, trade_type, mode: mode.toUpperCase(), year, job_no };
+  if (req.body._id) query._id = req.body._id;
+  return query;
+});
+
+router.patch("/api/update-operations-job/:branch_code/:trade_type/:mode/:year/:job_no", requireLoginForWrite, guardStaleSave, checkOperationsFields, extractJobInfo, auditMiddleware("Job"), async (req, res) => {
   const { branch_code, trade_type, mode, year, job_no } = req.params;
   const updateData = req.body;
 

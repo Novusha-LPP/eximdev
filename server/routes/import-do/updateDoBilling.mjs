@@ -2,6 +2,7 @@ import express from "express";
 import JobModel from "../../model/jobModel.mjs"; // Import your JobModel
 import auditMiddleware from "../../middleware/auditTrail.mjs"; // Import audit middleware
 import verifyToken from "../../middleware/authMiddleware.mjs"; // Import auth middleware
+import staleSaveGuard from "../../middleware/staleSaveGuard.mjs";
 
 const router = express.Router();
 
@@ -32,6 +33,7 @@ const extractJobInfo = async (req, res, next) => {
 router.patch(
   "/api/update-do-billing/:id",
   verifyToken,
+  staleSaveGuard((req) => ({ _id: req.params.id })),
   extractJobInfo,
   auditMiddleware("Job"),
   async (req, res) => {

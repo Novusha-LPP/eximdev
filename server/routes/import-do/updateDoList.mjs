@@ -3,10 +3,13 @@ import JobModel from "../../model/jobModel.mjs";
 import kycDocumentsModel from "../../model/kycDocumentsModel.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
 import verifyToken from "../../middleware/authMiddleware.mjs";
+import staleSaveGuard from "../../middleware/staleSaveGuard.mjs";
 
 const router = express.Router();
 
-router.patch("/api/update-do-list", verifyToken, auditMiddleware('Job'), async (req, res, next) => {
+const guardStaleSave = staleSaveGuard((req) => (req.body._id ? { _id: req.body._id } : null));
+
+router.patch("/api/update-do-list", verifyToken, guardStaleSave, auditMiddleware('Job'), async (req, res, next) => {
   const {
     _id,
     shipping_line_bond_completed,

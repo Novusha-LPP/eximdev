@@ -94,11 +94,11 @@ export const getTableRowInlineStyle = (params) => {
     "sea-igm-filed": "#ffcc99",
     "discharge": "#ffcc99",
     "eta": "#ffff99",
-    "eta-date-pending": "#ffffcc",
+    // "eta-date-pending" has no colour: rows with ETA Date Pending stay white
     "payment_made": "#ffc5c5",
     "billing-pending": "#ffcccc",
     "arrived-be-note-pending": "#e6ccff",
-    "rail-out": "#ccffcc",
+    "rail-out": "#99ccff",
     "bg-yellow": "#f9e781",
     "bg-orange": "#fbba5f",
     "bg-green": "#b0f8b0",

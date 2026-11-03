@@ -194,12 +194,17 @@ router.put("/api/update-job/:branch_code/:trade_type/:mode/:year/:jobNo",
 
         const updatedFields = {
           ...rest,
+          // A flag missing from the request keeps its stored value instead of being cleared
           examinationPlanning:
-            typeof examinationPlanning === "string"
-              ? examinationPlanning === "true"
-              : !!examinationPlanning,
+            examinationPlanning === undefined
+              ? matchingJob.examinationPlanning
+              : typeof examinationPlanning === "string"
+                ? examinationPlanning === "true"
+                : !!examinationPlanning,
           doPlanning:
-            typeof doPlanning === "string" ? doPlanning === "true" : !!doPlanning,
+            doPlanning === undefined
+              ? matchingJob.doPlanning
+              : typeof doPlanning === "string" ? doPlanning === "true" : !!doPlanning,
           do_revalidation:
             typeof do_revalidation === "string"
               ? do_revalidation === "true"
@@ -216,18 +221,18 @@ router.put("/api/update-job/:branch_code/:trade_type/:mode/:year/:jobNo",
             const dbContainer = matchingJob.container_nos[index];
 
             if (dbContainer) {
+              // A removed revalidation row (shorter incoming list) used to crash the save here
+              const dbRevalidations = dbContainer.do_revalidation || [];
+              const incomingRevalidations = incomingContainer.do_revalidation || [];
               // Check if lengths of do_revalidation arrays are different
-              if (
-                dbContainer.do_revalidation.length !==
-                incomingContainer.do_revalidation.length
-              ) {
+              if (dbRevalidations.length !== incomingRevalidations.length) {
                 shouldUpdateDoProcessed = true;
               }
               // Check if any do_revalidation_upto values differ
-              for (let i = 0; i < dbContainer.do_revalidation.length; i++) {
+              for (let i = 0; i < dbRevalidations.length; i++) {
                 if (
-                  dbContainer.do_revalidation[i].do_revalidation_upto !==
-                  incomingContainer.do_revalidation[i].do_revalidation_upto
+                  dbRevalidations[i]?.do_revalidation_upto !==
+                  incomingRevalidations[i]?.do_revalidation_upto
                 ) {
                   shouldUpdateDoProcessed = true;
                   break;

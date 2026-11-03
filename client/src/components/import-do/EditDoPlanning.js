@@ -5,6 +5,7 @@ import React, {
   useCallback,
   useContext,
 } from "react";
+import { snapshotJob, withLoadedBase } from "../../utils/staleSaveBase";
 import { useFormik } from "formik";
 import axios from "axios";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
@@ -91,6 +92,7 @@ function EditDoPlanning() {
   const [searchParams] = useSearchParams();
 
   const [data, setData] = useState(null);
+  const loadedJobRef = useRef(null); // job as loaded, sent back as __base on save
   const { branch_code, trade_type, mode, job_no, year } = params;
   const [loading, setLoading] = useState(true); // Loading state
   const [kycData, setKycData] = useState("");
@@ -289,6 +291,7 @@ function EditDoPlanning() {
 
         // Ensure correct access to the job object
         const jobData = res.data.job;
+        loadedJobRef.current = snapshotJob(jobData);
 
         // Safely handle do_completed field
         let do_completed = "";
@@ -522,7 +525,7 @@ function EditDoPlanning() {
 
         const res = await axios.patch(
           `${process.env.REACT_APP_API_STRING}/update-do-planning`,
-          dataToSubmit,
+          withLoadedBase(dataToSubmit, loadedJobRef.current),
           {
             headers: {
               username: username,

@@ -39,7 +39,11 @@ export const BranchProvider = ({ children }) => {
 
             try {
                 const response = await api.get('/admin/my-branches');
-                const fetchedBranches = response.data || [];
+                // Anything but an array (HTML from a misrouted API, an error object) must not crash consumers
+                const fetchedBranches = Array.isArray(response.data) ? response.data : [];
+                if (!Array.isArray(response.data)) {
+                    console.error("Unexpected /admin/my-branches response:", typeof response.data);
+                }
                 setBranches(fetchedBranches);
 
                 if (user.role !== 'Admin' && fetchedBranches.length > 0) {

@@ -2,6 +2,8 @@ import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
+import staleSaveGuard from "../../middleware/staleSaveGuard.mjs";
+import fieldAllowList from "../../middleware/fieldAllowList.mjs";
 
 import { invalidateJobCache } from "../import-dsr/getJobList.mjs";
 import { invalidateJobTabCountsCache } from "../import-dsr/getJobTabCounts.mjs";
@@ -11,6 +13,15 @@ const router = express.Router();
 router.patch(
   "/api/update-submission-job/:branch_code/:trade_type/:mode/:job_no/:year",
   authMiddleware,
+  staleSaveGuard((req) => ({
+    branch_code: req.params.branch_code.toUpperCase(),
+    trade_type: req.params.trade_type.toUpperCase(),
+    mode: req.params.mode.toUpperCase(),
+    job_no: req.params.job_no,
+    year: req.params.year,
+  })),
+  // Fields the Submission job page sends
+  fieldAllowList("update-submission-job", ["be_no", "checklist", "submission_completed_date_time", "be_date", "dsr_queries"]),
   auditMiddleware("Job"),
   async (req, res) => {
     try {

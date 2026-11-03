@@ -2,11 +2,12 @@ import { Router } from 'express';
 import JobModel from '../../model/jobModel.mjs';
 import auditMiddleware from '../../middleware/auditTrail.mjs';
 import CthModel from '../../model/cthDocumentsModel.mjs';
+import requireLoginForWrite from "../../middleware/requireLoginForWrite.mjs";
 
 const router = Router();
 
 // PATCH API to update job with duty details from CTH collection
-router.patch('/jobs/:jobId/update-duty-from-cth', auditMiddleware("Job"), async (req, res) => {
+router.patch('/jobs/:jobId/update-duty-from-cth', requireLoginForWrite, auditMiddleware("Job"), async (req, res) => {
   try {
     const { jobId } = req.params;
     const { cth_no } = req.body;
@@ -15,8 +16,9 @@ router.patch('/jobs/:jobId/update-duty-from-cth', auditMiddleware("Job"), async 
       return res.status(400).json({ message: 'Job ID and CTH Number are required' });
     }
 
-    // Find the job by job_no
-    const job = await JobModel.findOne({ job_no: jobId });
+    // Job numbers repeat across years/branches: use the exact job when the page sends its _id
+    const jobFilter = req.body._id ? { _id: req.body._id } : { job_no: jobId };
+    const job = await JobModel.findOne(jobFilter);
     if (!job) {
       return res.status(404).json({ message: 'Job not found' });
     }
@@ -53,7 +55,7 @@ router.patch('/jobs/:jobId/update-duty-from-cth', auditMiddleware("Job"), async 
 
     // Update the job using updateOne to avoid full schema validation (e.g., CastError on other fields)
     await JobModel.updateOne(
-      { job_no: jobId },
+      jobFilter,
       {
         $set: {
           cth_basic_duty_sch: basic_duty_sch || '',

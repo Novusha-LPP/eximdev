@@ -1,10 +1,17 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
+import staleSaveGuard from "../../middleware/staleSaveGuard.mjs";
+import requireLoginForWrite from "../../middleware/requireLoginForWrite.mjs";
 
 const router = express.Router();
 
-router.patch("/api/update-documentation-job/:branch_code/:trade_type/:mode/:job_no/:year", auditMiddleware('Job'), async (req, res) => {
+const guardStaleSave = staleSaveGuard((req) => {
+  const { branch_code, trade_type, mode, job_no, year } = req.params;
+  return { branch_code, trade_type, mode: mode.toUpperCase(), job_no, year };
+});
+
+router.patch("/api/update-documentation-job/:branch_code/:trade_type/:mode/:job_no/:year", requireLoginForWrite, guardStaleSave, auditMiddleware('Job'), async (req, res) => {
   try {
     const { branch_code, trade_type, mode, job_no, year } = req.params;
     const { documentation_completed_date_time, dsr_queries } = req.body;

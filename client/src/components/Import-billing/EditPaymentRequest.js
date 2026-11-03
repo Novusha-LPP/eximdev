@@ -5,6 +5,7 @@ import React, {
   useCallback,
   useContext,
 } from "react";
+import { snapshotJob, withLoadedBase } from "../../utils/staleSaveBase";
 import { useFormik } from "formik";
 import axios from "axios";
 import { uploadFileToS3 } from "../../utils/awsFileUpload";
@@ -44,6 +45,7 @@ import ChargesGrid from "../ChargesGrid";
 function EditPaymentRequest() {
   const [someReceiptsUploaded, setsomeReceiptsUploaded] = useState(false);
   const [data, setData] = useState(null);
+  const loadedJobRef = useRef(null); // job as loaded, sent back as __base on save
   const [loading, setLoading] = useState(true);
   const [kycData, setKycData] = useState("");
   const [fileSnackbar, setFileSnackbar] = useState(false);
@@ -144,6 +146,7 @@ function EditPaymentRequest() {
         );
 
         const jobData = res.data.job;
+        loadedJobRef.current = snapshotJob(jobData);
 
         let do_completed = "";
         if (
@@ -296,7 +299,7 @@ function EditPaymentRequest() {
 
         const res = await axios.patch(
           `${process.env.REACT_APP_API_STRING}/update-do-planning`,
-          dataToSubmit,
+          withLoadedBase(dataToSubmit, loadedJobRef.current),
           {
             headers: {
               username: username,

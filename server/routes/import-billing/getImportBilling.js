@@ -1782,7 +1782,7 @@ router.post("/api/reject-payment-request", async (req, res) => {
           const cleanChargePr = chargePr.replace(/\/\d{2}-\d{2}$/, '');
           const matchPrNo = chargePr && (chargePr === requestNo.toLowerCase() || cleanChargePr === cleanReq.toLowerCase());
           const matchRef = targetChargeIds.has(String(charge._id));
-          if (matchPrNo || matchRef) {
+          if (matchPrNo || (matchRef && (!chargePr || matchPrNo))) {
             charge.payment_request_no = null;
             charge.payment_request_status = null;
             charge.payment_request_is_approved = false;
@@ -2081,7 +2081,7 @@ router.post("/api/reject-purchase-entry", async (req, res) => {
           const cleanChargePb = chargePb.replace(/\/\d{2}-\d{2}$/, '');
           const matchPbNo = chargePb && (chargePb === requestNo.toLowerCase() || cleanChargePb === cleanReq.toLowerCase());
           const matchRef = targetChargeIds.has(String(charge._id));
-          if (matchPbNo || matchRef) {
+          if (matchPbNo || (matchRef && (!chargePb || matchPbNo))) {
             charge.purchase_book_no = null;
             charge.purchase_book_status = null;
             charge.purchase_book_is_approved = false;

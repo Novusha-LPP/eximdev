@@ -137,8 +137,6 @@ router.get('/charges', async (req, res) => {
       const chargeIds = job.charges.map(c => String(c._id));
 
       let rejectedPbs = new Set();
-      let rejectedPbChargeIds = new Set();
-
       if (pbNos.length > 0) {
         const pbRegexes = pbNos.map(no => {
           const clean = escapeRegex(no.replace(/\/\d{2}-\d{2}$/, ''));
@@ -149,34 +147,24 @@ router.get('/charges', async (req, res) => {
             {
               $or: [
                 { entryNo: { $in: pbNos } },
-                { entryNo: { $in: pbRegexes } },
-                { chargeRef: { $in: chargeIds } },
-                { chargeRefs: { $in: chargeIds } }
+                { entryNo: { $in: pbRegexes } }
               ]
             },
             {
               $or: [{ status: { $regex: /^rejected$/i } }, { isRejected: true }]
             }
           ]
-        }).select('entryNo chargeRef chargeRefs').lean();
+        }).select('entryNo').lean();
 
         pbs.forEach(p => {
           if (p.entryNo) {
             rejectedPbs.add(p.entryNo.toLowerCase());
             rejectedPbs.add(p.entryNo.replace(/\/\d{2}-\d{2}$/, '').toLowerCase());
           }
-          if (p.chargeRef) {
-            String(p.chargeRef).split(',').forEach(id => rejectedPbChargeIds.add(id.trim()));
-          }
-          if (Array.isArray(p.chargeRefs)) {
-            p.chargeRefs.forEach(id => rejectedPbChargeIds.add(String(id).trim()));
-          }
         });
       }
 
       let rejectedPrs = new Set();
-      let rejectedPrChargeIds = new Set();
-
       if (prNos.length > 0) {
         const prRegexes = prNos.map(no => {
           const clean = escapeRegex(no.replace(/\/\d{2}-\d{2}$/, ''));
@@ -187,52 +175,109 @@ router.get('/charges', async (req, res) => {
             {
               $or: [
                 { requestNo: { $in: prNos } },
-                { requestNo: { $in: prRegexes } },
-                { chargeRef: { $in: chargeIds } },
-                { chargeRefs: { $in: chargeIds } }
+                { requestNo: { $in: prRegexes } }
               ]
             },
             {
               $or: [{ status: { $regex: /^rejected$/i } }, { isRejected: true }]
             }
           ]
-        }).select('requestNo chargeRef chargeRefs').lean();
+        }).select('requestNo').lean();
 
         prs.forEach(p => {
           if (p.requestNo) {
             rejectedPrs.add(p.requestNo.toLowerCase());
             rejectedPrs.add(p.requestNo.replace(/\/\d{2}-\d{2}$/, '').toLowerCase());
           }
-          if (p.chargeRef) {
-            String(p.chargeRef).split(',').forEach(id => rejectedPrChargeIds.add(id.trim()));
-          }
-          if (Array.isArray(p.chargeRefs)) {
-            p.chargeRefs.forEach(id => rejectedPrChargeIds.add(String(id).trim()));
-          }
         });
       }
+
+      // Look up any ACTIVE (non-rejected) PB and PR entries for charges in this job to restore missing linkages
+      const activePbs = await PurchaseBookEntryModel.find({
+        $and: [
+          {
+            $or: [
+              { chargeRef: { $in: chargeIds } },
+              { chargeRefs: { $in: chargeIds } }
+            ]
+          },
+          { status: { $not: /^rejected$/i } },
+          { isRejected: { $ne: true } }
+        ]
+      }).sort({ createdAt: -1 }).lean();
+
+      const activePrs = await PaymentRequestModel.find({
+        $and: [
+          {
+            $or: [
+              { chargeRef: { $in: chargeIds } },
+              { chargeRefs: { $in: chargeIds } }
+            ]
+          },
+          { status: { $not: /^rejected$/i } },
+          { isRejected: { $ne: true } }
+        ]
+      }).sort({ createdAt: -1 }).lean();
 
       job.charges.forEach(charge => {
         const cPb = (charge.purchase_book_no || '').trim().toLowerCase();
         const cleanCPb = cPb.replace(/\/\d{2}-\d{2}$/, '');
         const isChargePbRejected = String(charge.purchase_book_status || '').toLowerCase() === 'rejected';
 
-        if (cPb && (isChargePbRejected || rejectedPbs.has(cPb) || rejectedPbs.has(cleanCPb) || rejectedPbChargeIds.has(String(charge._id)))) {
+        // 1. If currently assigned PB is rejected, clear it
+        if (cPb && (isChargePbRejected || rejectedPbs.has(cPb) || rejectedPbs.has(cleanCPb))) {
           charge.purchase_book_no = null;
           charge.purchase_book_status = null;
           charge.purchase_book_is_approved = false;
           jobModified = true;
         }
 
+        // 2. If charge does NOT have a valid PB, but an active non-rejected PB exists in DB for this charge, restore it!
+        if (!charge.purchase_book_no) {
+          const matchPb = activePbs.find(p => {
+            const rawRefs = [
+              ...(p.chargeRef ? String(p.chargeRef).split(',') : []),
+              ...((p.chargeRefs || []).map(String))
+            ].map(s => s.trim());
+            return rawRefs.includes(String(charge._id));
+          });
+          if (matchPb && matchPb.entryNo) {
+            charge.purchase_book_no = matchPb.entryNo;
+            charge.purchase_book_status = matchPb.status || 'Active';
+            charge.purchase_book_is_approved = Boolean(matchPb.isApproved || matchPb.status === 'Approved' || matchPb.status === 'Paid');
+            if (matchPb.requestedBy) charge.purchase_book_requested_by = matchPb.requestedBy;
+            jobModified = true;
+          }
+        }
+
         const cPr = (charge.payment_request_no || '').trim().toLowerCase();
         const cleanCPr = cPr.replace(/\/\d{2}-\d{2}$/, '');
         const isChargePrRejected = String(charge.payment_request_status || '').toLowerCase() === 'rejected';
 
-        if (cPr && (isChargePrRejected || rejectedPrs.has(cPr) || rejectedPrs.has(cleanCPr) || rejectedPrChargeIds.has(String(charge._id)))) {
+        // 3. If currently assigned PR is rejected, clear it
+        if (cPr && (isChargePrRejected || rejectedPrs.has(cPr) || rejectedPrs.has(cleanCPr))) {
           charge.payment_request_no = null;
           charge.payment_request_status = null;
           charge.payment_request_is_approved = false;
           jobModified = true;
+        }
+
+        // 4. If charge does NOT have a valid PR, but an active non-rejected PR exists in DB for this charge, restore it!
+        if (!charge.payment_request_no) {
+          const matchPr = activePrs.find(p => {
+            const rawRefs = [
+              ...(p.chargeRef ? String(p.chargeRef).split(',') : []),
+              ...((p.chargeRefs || []).map(String))
+            ].map(s => s.trim());
+            return rawRefs.includes(String(charge._id));
+          });
+          if (matchPr && matchPr.requestNo) {
+            charge.payment_request_no = matchPr.requestNo;
+            charge.payment_request_status = matchPr.status || 'Active';
+            charge.payment_request_is_approved = Boolean(matchPr.isApproved || matchPr.status === 'Approved' || matchPr.status === 'Paid');
+            if (matchPr.requestedBy) charge.payment_request_requested_by = matchPr.requestedBy;
+            jobModified = true;
+          }
         }
       });
 
@@ -317,9 +362,7 @@ router.put('/charges/:id', verifyToken, async (req, res) => {
           {
             $or: [
               { entryNo: charge.purchase_book_no },
-              { entryNo: { $regex: new RegExp(`^${escapeRegex(cleanPb)}`, 'i') } },
-              { chargeRef: { $regex: new RegExp(escapeRegex(String(charge._id)), 'i') } },
-              { chargeRefs: String(charge._id) }
+              { entryNo: { $regex: new RegExp(`^${escapeRegex(cleanPb)}`, 'i') } }
             ]
           },
           { $or: [{ status: { $regex: /^rejected$/i } }, { isRejected: true }] }
@@ -334,6 +377,27 @@ router.put('/charges/:id', verifyToken, async (req, res) => {
       }
     }
 
+    if (!charge.purchase_book_no) {
+      const activePb = await PurchaseBookEntryModel.findOne({
+        $and: [
+          {
+            $or: [
+              { chargeRef: String(charge._id) },
+              { chargeRefs: String(charge._id) }
+            ]
+          },
+          { status: { $not: /^rejected$/i } },
+          { isRejected: { $ne: true } }
+        ]
+      }).sort({ createdAt: -1 }).lean();
+      if (activePb && activePb.entryNo) {
+        charge.purchase_book_no = activePb.entryNo;
+        charge.purchase_book_status = activePb.status || 'Active';
+        charge.purchase_book_is_approved = Boolean(activePb.isApproved || activePb.status === 'Approved' || activePb.status === 'Paid');
+        if (activePb.requestedBy) charge.purchase_book_requested_by = activePb.requestedBy;
+      }
+    }
+
     if (!isPrRejected && charge.payment_request_no) {
       const cleanPr = charge.payment_request_no.replace(/\/\d{2}-\d{2}$/, '');
       const prEntry = await PaymentRequestModel.findOne({
@@ -341,9 +405,7 @@ router.put('/charges/:id', verifyToken, async (req, res) => {
           {
             $or: [
               { requestNo: charge.payment_request_no },
-              { requestNo: { $regex: new RegExp(`^${escapeRegex(cleanPr)}`, 'i') } },
-              { chargeRef: { $regex: new RegExp(escapeRegex(String(charge._id)), 'i') } },
-              { chargeRefs: String(charge._id) }
+              { requestNo: { $regex: new RegExp(`^${escapeRegex(cleanPr)}`, 'i') } }
             ]
           },
           { $or: [{ status: { $regex: /^rejected$/i } }, { isRejected: true }] }
@@ -355,6 +417,27 @@ router.put('/charges/:id', verifyToken, async (req, res) => {
         charge.payment_request_no = null;
         charge.payment_request_status = null;
         charge.payment_request_is_approved = false;
+      }
+    }
+
+    if (!charge.payment_request_no) {
+      const activePr = await PaymentRequestModel.findOne({
+        $and: [
+          {
+            $or: [
+              { chargeRef: String(charge._id) },
+              { chargeRefs: String(charge._id) }
+            ]
+          },
+          { status: { $not: /^rejected$/i } },
+          { isRejected: { $ne: true } }
+        ]
+      }).sort({ createdAt: -1 }).lean();
+      if (activePr && activePr.requestNo) {
+        charge.payment_request_no = activePr.requestNo;
+        charge.payment_request_status = activePr.status || 'Active';
+        charge.payment_request_is_approved = Boolean(activePr.isApproved || activePr.status === 'Approved' || activePr.status === 'Paid');
+        if (activePr.requestedBy) charge.payment_request_requested_by = activePr.requestedBy;
       }
     }
 
@@ -489,29 +572,39 @@ router.post('/reject-purchase-entry', async (req, res) => {
     if (!requestNo) return res.status(400).json({ success: false, message: 'Request No is required' });
 
     const cleanReq = requestNo.replace(/\/\d{2}-\d{2}$/, '');
-    const pbEntry = await PurchaseBookEntryModel.findOneAndUpdate(
-      {
-        $or: [
-          { entryNo: { $regex: new RegExp(`^${escapeRegex(requestNo)}$`, 'i') } },
-          { entryNo: { $regex: new RegExp(`^${escapeRegex(cleanReq)}`, 'i') } }
-        ]
-      },
+    const existingPb = await PurchaseBookEntryModel.findOne({
+      $or: [
+        { entryNo: { $regex: new RegExp(`^${escapeRegex(requestNo)}$`, 'i') } },
+        { entryNo: { $regex: new RegExp(`^${escapeRegex(cleanReq)}`, 'i') } }
+      ]
+    });
+
+    const rawRefs = [
+      ...(existingPb?.chargeRef ? String(existingPb.chargeRef).split(',') : []),
+      ...((existingPb?.chargeRefs || []).map(String)),
+      ...(existingPb?.archivedChargeRef ? String(existingPb.archivedChargeRef).split(',') : []),
+      ...((existingPb?.archivedChargeRefs || []).map(String))
+    ].map(s => s.trim()).filter(Boolean);
+    const targetChargeIds = new Set(rawRefs);
+
+    const pbEntry = existingPb ? await PurchaseBookEntryModel.findByIdAndUpdate(
+      existingPb._id,
       {
         $set: {
           isRejected: true,
           status: 'Rejected',
           rejectionReason: reason || 'Rejected',
-          rejectedAt: new Date()
+          rejectedAt: new Date(),
+          archivedChargeRef: existingPb.chargeRef || existingPb.archivedChargeRef || null,
+          archivedChargeRefs: existingPb.chargeRefs || existingPb.archivedChargeRefs || []
+        },
+        $unset: {
+          chargeRef: "",
+          chargeRefs: ""
         }
       },
       { new: true }
-    );
-
-    const rawRefs = [
-      ...(pbEntry?.chargeRef ? String(pbEntry.chargeRef).split(',') : []),
-      ...((pbEntry?.chargeRefs || []).map(String))
-    ].map(s => s.trim()).filter(Boolean);
-    const targetChargeIds = new Set(rawRefs);
+    ) : null;
 
     const jobs = await JobModel.find({
       $or: [
@@ -530,7 +623,7 @@ router.post('/reject-purchase-entry', async (req, res) => {
         const cleanChargePb = chargePb.replace(/\/\d{2}-\d{2}$/, '');
         const matchPb = chargePb && (chargePb === requestNo.toLowerCase() || cleanChargePb === cleanReq.toLowerCase());
         const matchRef = targetChargeIds.has(String(charge._id));
-        if (matchPb || matchRef) {
+        if (matchPb || (matchRef && (!chargePb || matchPb))) {
           charge.purchase_book_no = null;
           charge.purchase_book_status = null;
           charge.purchase_book_is_approved = false;
@@ -558,29 +651,39 @@ router.post('/reject-payment-request', async (req, res) => {
     if (!requestNo) return res.status(400).json({ success: false, message: 'Request No is required' });
 
     const cleanReq = requestNo.replace(/\/\d{2}-\d{2}$/, '');
-    const prEntry = await PaymentRequestModel.findOneAndUpdate(
-      {
-        $or: [
-          { requestNo: { $regex: new RegExp(`^${escapeRegex(requestNo)}$`, 'i') } },
-          { requestNo: { $regex: new RegExp(`^${escapeRegex(cleanReq)}`, 'i') } }
-        ]
-      },
+    const existingPr = await PaymentRequestModel.findOne({
+      $or: [
+        { requestNo: { $regex: new RegExp(`^${escapeRegex(requestNo)}$`, 'i') } },
+        { requestNo: { $regex: new RegExp(`^${escapeRegex(cleanReq)}`, 'i') } }
+      ]
+    });
+
+    const rawRefs = [
+      ...(existingPr?.chargeRef ? String(existingPr.chargeRef).split(',') : []),
+      ...((existingPr?.chargeRefs || []).map(String)),
+      ...(existingPr?.archivedChargeRef ? String(existingPr.archivedChargeRef).split(',') : []),
+      ...((existingPr?.archivedChargeRefs || []).map(String))
+    ].map(s => s.trim()).filter(Boolean);
+    const targetChargeIds = new Set(rawRefs);
+
+    const prEntry = existingPr ? await PaymentRequestModel.findByIdAndUpdate(
+      existingPr._id,
       {
         $set: {
           isRejected: true,
           status: 'Rejected',
           rejectionReason: reason || 'Rejected',
-          rejectedAt: new Date()
+          rejectedAt: new Date(),
+          archivedChargeRef: existingPr.chargeRef || existingPr.archivedChargeRef || null,
+          archivedChargeRefs: existingPr.chargeRefs || existingPr.archivedChargeRefs || []
+        },
+        $unset: {
+          chargeRef: "",
+          chargeRefs: ""
         }
       },
       { new: true }
-    );
-
-    const rawRefs = [
-      ...(prEntry?.chargeRef ? String(prEntry.chargeRef).split(',') : []),
-      ...((prEntry?.chargeRefs || []).map(String))
-    ].map(s => s.trim()).filter(Boolean);
-    const targetChargeIds = new Set(rawRefs);
+    ) : null;
 
     const jobs = await JobModel.find({
       $or: [
@@ -599,7 +702,7 @@ router.post('/reject-payment-request', async (req, res) => {
         const cleanChargePr = chargePr.replace(/\/\d{2}-\d{2}$/, '');
         const matchPr = chargePr && (chargePr === requestNo.toLowerCase() || cleanChargePr === cleanReq.toLowerCase());
         const matchRef = targetChargeIds.has(String(charge._id));
-        if (matchPr || matchRef) {
+        if (matchPr || (matchRef && (!chargePr || matchPr))) {
           charge.payment_request_no = null;
           charge.payment_request_status = null;
           charge.payment_request_is_approved = false;

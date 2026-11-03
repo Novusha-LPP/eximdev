@@ -586,12 +586,14 @@ const DEFAULT_TERMS = [
     }));
 
     try {
+      const compCode = compProfile?.shortName || compProfile?.id || globalData?.companyShortName || "SFPL";
       const res = await axios.post(
         `${process.env.REACT_APP_API_STRING}/tyre-procurement/next-po-numbers`,
         {
           suppliers: suppliersPayload,
           date: data?.poDate || globalData?.createdAt || new Date().toISOString(),
           currentId: globalData?._id || undefined,
+          companyShortName: compCode,
         }
       );
 
@@ -606,9 +608,12 @@ const DEFAULT_TERMS = [
           updated[rowIdx] = { ...updated[rowIdx], poNumber: assignedPo };
         });
 
-        // Also sync the first supplier's PO to globalData.poNumber if empty or legacy
-        if (updated[0]?.poNumber && onGlobalChange && !globalData?.poNumber) {
-          onGlobalChange("poNumber", updated[0].poNumber);
+        // Always sync the awarded PO numbers to globalData.poNumber so Stage 1, Stage 2, and Stage 3 match
+        if (updated.length > 0 && onGlobalChange) {
+          const allPos = Array.from(new Set(updated.map((s) => s.poNumber).filter(Boolean)));
+          if (allPos.length > 0) {
+            onGlobalChange("poNumber", allPos.join(", "));
+          }
         }
 
         return updated;

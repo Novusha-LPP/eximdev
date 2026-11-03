@@ -459,7 +459,11 @@ function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
             </Stack>
             {formData.prNumber && (
               <Typography variant="caption" sx={{ color: "#64748b" }}>
-                PR: <strong>{formData.prNumber}</strong> {formData.poNumber ? `| PO: ${formData.poNumber}` : ""}
+                PR: <strong>{formData.prNumber}</strong> {(() => {
+                  const s2Pos = Array.from(new Set((formData.stage2?.selectedSuppliers || []).map((s) => s.poNumber).filter(Boolean)));
+                  const poShow = s2Pos.length > 0 ? s2Pos.join(", ") : formData.poNumber;
+                  return poShow ? `| PO: ${poShow}` : "";
+                })()}
               </Typography>
             )}
           </Box>

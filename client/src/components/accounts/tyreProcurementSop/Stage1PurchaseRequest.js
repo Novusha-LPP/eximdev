@@ -678,7 +678,16 @@ function Stage1PurchaseRequest({ data = {}, onChange, globalData = {}, onGlobalC
             <label className="sop-field-label">PO Number (Auto)</label>
             <input
               className="sop-input"
-              value={globalData?.poNumber || ""}
+              value={(() => {
+                const stage2Pos = Array.from(
+                  new Set(
+                    (globalData?.stage2?.selectedSuppliers || [])
+                      .map((s) => s.poNumber)
+                      .filter(Boolean)
+                  )
+                );
+                return stage2Pos.length > 0 ? stage2Pos.join(", ") : (globalData?.poNumber || "");
+              })()}
               readOnly
               placeholder="Auto-generating..."
               style={{ fontWeight: 700, color: "#047857", backgroundColor: "#f8fafc" }}

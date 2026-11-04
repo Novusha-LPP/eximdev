@@ -782,10 +782,6 @@ function PoLandscapePdfGenerator({
         const suppNameClean = (awardedSuppliers[0].supplierName || "Supplier").replace(/[^a-zA-Z0-9_-]/g, "_");
         pdf.save(`Purchase_Order_${suppNameClean}_${poClean}.pdf`);
       } else {
-        const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4", compress: true });
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
-
         for (let i = 0; i < awardedSuppliers.length; i++) {
           setActiveVendorIndex(i);
           await new Promise((resolve) => setTimeout(resolve, 300));
@@ -808,9 +804,9 @@ function PoLandscapePdfGenerator({
 
           const imgData = await compositeWithLetterhead(canvas, activeProfile.letterheadBase64, isLetterhead);
 
-          if (i > 0) {
-            pdf.addPage();
-          }
+          const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4", compress: true });
+          const pdfWidth = pdf.internal.pageSize.getWidth();
+          const pdfHeight = pdf.internal.pageSize.getHeight();
 
           if (isLetterhead || isPlain) {
             pdf.addImage(imgData, "JPEG", 0, 0, pdfWidth, pdfHeight);
@@ -819,9 +815,18 @@ function PoLandscapePdfGenerator({
             const imgHeight = (canvas.height * imgWidth) / canvas.width;
             pdf.addImage(imgData, "JPEG", 15, 15, imgWidth, Math.min(imgHeight, pdfHeight - 30));
           }
-        }
 
-        pdf.save(`Combined_Purchase_Orders_${poClean}.pdf`);
+          const supp = awardedSuppliers[i] || {};
+          const suppNameClean = (supp.supplierName || `Supplier_${i + 1}`).replace(/[^a-zA-Z0-9_-]/g, "_");
+          const specificPoNum = supp.poNumber || poClean;
+          const specificPoClean = specificPoNum !== "-" ? String(specificPoNum).replace(/[\/\\]/g, "_") : poClean;
+
+          pdf.save(`Purchase_Order_${suppNameClean}_${specificPoClean}.pdf`);
+
+          if (i < awardedSuppliers.length - 1) {
+            await new Promise((resolve) => setTimeout(resolve, 400));
+          }
+        }
       }
     } catch (err) {
       console.error("PDF generation failed:", err);

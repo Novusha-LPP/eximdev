@@ -118,6 +118,48 @@ const getOrdinalNum = (n) => n + (n > 0 ? ['th', 'st', 'nd', 'rd'][(n > 3 && n <
 const formatStatus = (s) => { if (!s) return '--'; const str = String(s).replace(/_/g, ' '); return str.charAt(0).toUpperCase() + str.slice(1); };
 const getAttendanceDateLabel = (v) => formatAttendanceDate(v, 'd MMM, EEE', ATTENDANCE_TIME_ZONE);
 
+const rowsInMonth = (rows, year, monthIndex) => {
+  const prefix = moment({ year, month: monthIndex, day: 1 }).format('YYYY-MM');
+  const seen = new Set();
+  const out = [];
+  for (const row of rows || []) {
+    const key = getAttendanceDateKey(row?.attendance_date);
+    if (!key || key.slice(0, 7) !== prefix || seen.has(key)) continue;
+    seen.add(key);
+    out.push(row);
+  }
+  return out;
+};
+
+const tallyAttendanceRows = (rows) => {
+  const s = { present: 0, absent: 0, late: 0, leaves: 0, weeklyOff: 0, holidays: 0 };
+  for (const rec of rows || []) {
+    const raw = String(rec?.status || '').toLowerCase();
+    const hasLeave = !!(rec?.leaveType || rec?.leave_type);
+    if (raw === 'leave' || raw === 'pending_leave') {
+      s.leaves += 1;
+      continue;
+    }
+    const isHalf = raw === 'half_day' || Boolean(rec?.is_half_day || rec?.isHalfDay || rec?.is_half || rec?.half_day);
+    if (isHalf) {
+      if (hasLeave) { s.leaves += 0.5; s.present += 0.5; }
+      else { s.present += 0.5; s.absent += 0.5; }
+      continue;
+    }
+    if (hasLeave && (raw === 'present' || raw === 'late' || raw === 'absent')) {
+      s.leaves += 1;
+      continue;
+    }
+    const st = getCalendarStatusClass(raw);
+    if (st === 'present') s.present += 1;
+    else if (st === 'late') { s.late += 1; s.present += 1; }
+    else if (st === 'absent') s.absent += 1;
+    else if (st === 'weekly_off') s.weeklyOff += 1;
+    else if (st === 'holiday') s.holidays += 1;
+  }
+  return s;
+};
+
 const getCalendarStatusClass = (status = '') => {
   const n = String(status || '').toLowerCase();
   if (n === 'weekly_off' || n === 'weekoff' || n === 'off') return 'weekly_off';
@@ -271,6 +313,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
   // ── Download Report state & version counter ──────────────────────────────
   // Version counter: increments each time a full-directory report is downloaded (resets on page refresh)
   const epwDlVersionRef = useRef(0);
+  const profileFetchGen = useRef(0);
   const [epwDlModal, setEpwDlModal] = useState({
     open: false,
     startDate: moment().startOf('month').format('YYYY-MM-DD'),
@@ -566,29 +609,23 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
 
   const totalPages = Math.ceil(filteredEmployees.length / pageSize);
   const empHistory = profile?.attendance || [];
+  const performanceRows = useMemo(
+    () => rowsInMonth(empHistory, browseYear, browseMonth - 1),
+    [empHistory, browseYear, browseMonth]
+  );
+  const attendanceTabRows = useMemo(
+    () => rowsInMonth(profile?.attendance, selectedYear, selectedMonth),
+    [profile?.attendance, selectedYear, selectedMonth]
+  );
 
   const continuityStats = useMemo(() => {
-    const s = { present: 0, absent: 0, late: 0, leaves: 0, weeklyOff: 0, holidays: 0 };
-    (empHistory || []).forEach(rec => {
-      const st = getCalendarStatusClass(rec?.status);
-      if (st === 'present') s.present += 1;
-      if (st === 'late') { s.late += 1; s.present += 1; }
-      if (st === 'absent') s.absent += 1;
-      if (st === 'leave' || st === 'pending_leave') s.leaves += 1;
-      if (st === 'half_day') {
-        const hasLeave = !!(rec.leaveType || rec.leave_type);
-        if (hasLeave) { s.leaves += 0.5; s.present += 0.5; } else { s.present += 0.5; s.absent += 0.5; }
-      }
-      if (st === 'weekly_off') s.weeklyOff += 1;
-      if (st === 'holiday') s.holidays += 1;
-    });
-    if (!(empHistory || []).length) return {
+    if (!performanceRows.length) return {
       present: profile?.summary?.present ?? 0, absent: profile?.summary?.absent ?? 0,
       late: profile?.summary?.late ?? 0, leaves: profile?.summary?.leaves ?? 0,
       weeklyOff: 0, holidays: (profile?.holidays || []).length
     };
-    return s;
-  }, [empHistory, profile?.summary, profile?.holidays]);
+    return tallyAttendanceRows(performanceRows);
+  }, [performanceRows, profile?.summary, profile?.holidays]);
 
   const leaveHistory = useMemo(() => {
     const approved = Array.isArray(profile?.leaves) ? profile.leaves : [];
@@ -671,6 +708,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
     if (!id) return;
     const tm = typeof paramMonth === 'number' ? paramMonth : browseMonth;
     const ty = typeof paramYear === 'number' ? paramYear : browseYear;
+    const requestId = ++profileFetchGen.current;
     setLoading(true); setEditingId(null);
     try {
       const start = moment([ty, tm - 1]).startOf('month').format('YYYY-MM-DD');
@@ -680,9 +718,15 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
         attendanceAPI.getEmployeeFullProfile(id, start, end, effectiveCompanyId),
         leaveAPI.getBalance(id).catch(() => ({ data: [] }))
       ]);
+      if (requestId !== profileFetchGen.current) return;
       setProfile({ ...(r || {}), balances: Array.isArray(lbr?.data) ? lbr.data : (r?.balances || []) });
-    } catch (e) { toast.error('Failed to load history for selected period'); }
-    finally { setLoading(false); }
+    } catch (e) {
+      if (requestId !== profileFetchGen.current) return;
+      toast.error('Failed to load history for selected period');
+    }
+    finally {
+      if (requestId === profileFetchGen.current) setLoading(false);
+    }
   };
 
   const handleApplyFullMonthPresence = async (e) => {
@@ -738,7 +782,12 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
     }
   };
 
-  useEffect(() => { const d = new Date(startDate); setBrowseMonth(d.getMonth() + 1); setBrowseYear(d.getFullYear()); }, [startDate]);
+  useEffect(() => {
+    const d = moment(startDate, 'YYYY-MM-DD', true);
+    if (!d.isValid()) return;
+    setBrowseMonth(d.month() + 1);
+    setBrowseYear(d.year());
+  }, [startDate]);
 
   useEffect(() => {
     if (!profile?.employee || isEditingPolicy) return;
@@ -754,27 +803,44 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
 
   const fetchData = async () => {
     if (!id) { setLoading(false); return; }
+    const requestId = ++profileFetchGen.current;
+    const rangeStart = startDate;
+    const rangeEnd = endDate;
     setLoading(true); setMigrationHistoryLoading(true);
     try {
       const [pr, lbr, polr, migr] = await Promise.all([
-        attendanceAPI.getEmployeeFullProfile(id, startDate, endDate),
+        attendanceAPI.getEmployeeFullProfile(id, rangeStart, rangeEnd),
         leaveAPI.getBalance(id).catch(() => ({ data: [] })),
         masterAPI.getLeavePolicies({ limit: 200 }).catch(() => ({ data: [] })),
         attendanceAPI.getEmployeeMigrationHistory(id).catch(() => ({ data: [] }))
       ]);
+      if (requestId !== profileFetchGen.current) return;
       setProfile({ ...(pr || {}), balances: Array.isArray(lbr?.data) ? lbr.data : (pr?.balances || []) });
       setMigrationHistory(Array.isArray(migr?.data) ? migr.data : []);
       const rows = Array.isArray(polr?.data) ? polr.data : Array.isArray(polr) ? polr : [];
       setLeavePolicies(rows);
-    } catch (e) { toast.error(e?.message || 'Failed to load employee profile'); }
-    finally { setLoading(false); setMigrationHistoryLoading(false); }
+    } catch (e) {
+      if (requestId !== profileFetchGen.current) return;
+      toast.error(e?.message || 'Failed to load employee profile');
+    }
+    finally {
+      if (requestId === profileFetchGen.current) {
+        setLoading(false);
+        setMigrationHistoryLoading(false);
+      }
+    }
   };
 
   useEffect(() => {
+    if (!id) {
+      setLoading(false);
+      return;
+    }
     if (!startDate || !endDate) return;
     if (moment(endDate).isBefore(moment(startDate))) { toast.error('End date cannot be before start date'); setEndDate(startDate); return; }
+    if (tab === 'performance') return;
     fetchData();
-  }, [id, startDate, endDate]);
+  }, [id, startDate, endDate, tab]);
 
   useEffect(() => { if (id && tab === 'performance') fetchBrowseHistory(browseMonth, browseYear); }, [id, browseMonth, browseYear, tab]);
 
@@ -3008,7 +3074,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
         {/* ── Summary Strip ── */}
         <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
           {[
-            { label: 'Records', value: `${(profile.attendance || []).length}`, icon: '📊' },
+            { label: 'Records', value: `${tab === 'attendance' ? attendanceTabRows.length : tab === 'performance' ? performanceRows.length : (profile.attendance || []).length}`, icon: '📊' },
             { label: 'Policies', value: `${(profile.balances || []).length}`, icon: '📋' },
             { label: 'Pending', value: `${(profile.pendingLeaves || []).length}`, icon: '⏳', highlight: (profile.pendingLeaves || []).length > 0, onClick: () => { setPendingLeavesModalTab('pending'); setShowPendingLeavesModal(true); } },
           ].map((s, i) => (
@@ -3080,7 +3146,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                       const ds = moment([browseYear, browseMonth - 1, d]).format('YYYY-MM-DD');
                       const rec = empHistory.find(r => getAttendanceDateKey(r.attendance_date) === ds) || { attendance_date: ds, status: 'none' };
                       const ex = String(rec.status || '').toLowerCase();
-                      const isHalf = ex === 'half_day' || Boolean(rec.is_half_day || rec.isHalfDay || rec.is_half || rec.half_day);
+                      const isHalf = ex !== 'leave' && ex !== 'pending_leave' && (ex === 'half_day' || Boolean(rec.is_half_day || rec.isHalfDay || rec.is_half || rec.half_day));
                       const ds2 = isHalf ? 'half_day' : (rec.status || 'none');
                       const sc2 = getCalendarStatusClass(ds2);
                       let sb = getCalendarStatusBadge(ds2);
@@ -3244,8 +3310,9 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                   </tr>
                 </thead>
                 <tbody>
-                  {(profile.attendance || []).map(row => {
+                  {attendanceTabRows.map(row => {
                     const sc = getCalendarStatusClass(row.status);
+                    const dateKey = getAttendanceDateKey(row.attendance_date);
                     const shift = row.shift_id || assignedShiftOptions?.[0] || profile?.employee?.shift_id || {};
                     const sn = shift.shift_name || row.shift_name || (assignedShiftOptions?.[0]?.shift_name) || '--';
                     const fst = t => t ? moment(t, 'HH:mm').format('h:mma') : '';
@@ -3256,9 +3323,9 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                       if (a.isValid() && b.isValid()) { let d = b.diff(a, 'hours', true); if (d < 0) d += 24; sh = Math.round(d); }
                     }
                     return (
-                      <tr key={row._id}>
+                      <tr key={`${dateKey}-${row._id}`}>
                         <td>{employeeName}</td>
-                        <td style={{ whiteSpace: 'nowrap' }}>{moment(row.attendance_date).format('YYYY-MM-DD')}</td>
+                        <td style={{ whiteSpace: 'nowrap' }}>{dateKey}</td>
                         <StatusPill status={sc} session={row.half_day_session} leaveType={row.leaveType || row.leave_type} leaveStatus={row.leaveStatus || row.approval_status} />
                         <td style={{ whiteSpace: 'nowrap' }}>{row.first_in ? moment(row.first_in).format('DD-MM-YYYY h:mm A') : ''}</td>
                         <td style={{ whiteSpace: 'nowrap' }}>{row.last_out ? moment(row.last_out).format('DD-MM-YYYY h:mm A') : ''}</td>
@@ -3267,7 +3334,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                       </tr>
                     );
                   })}
-                  {!(profile.attendance || []).length && <tr><td colSpan={7} style={{ padding: '24px', textAlign: 'center', color: THEME.muted }}>No records in selected period</td></tr>}
+                  {!attendanceTabRows.length && <tr><td colSpan={7} style={{ padding: '24px', textAlign: 'center', color: THEME.muted }}>No records in selected period</td></tr>}
                 </tbody>
               </table>
             </div>

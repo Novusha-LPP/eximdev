@@ -214,6 +214,44 @@ const getWeeklyOffDaysFromPolicy = (weekOffPolicy) => {
 const dateKeyUTC = (dateVal) => moment(dateVal).tz('Asia/Kolkata').format('YYYY-MM-DD');
 const dateKeyLocal = (dateVal) => moment(dateVal).tz('Asia/Kolkata').format('YYYY-MM-DD');
 
+export const tallyProfileAttendanceDays = (rows = []) => {
+    const summary = {
+        present: 0,
+        absent: 0,
+        late: 0,
+        half_day: 0,
+        leaves: 0,
+        weeklyOff: 0,
+        holidays: 0
+    };
+    for (const item of rows) {
+        const st = String(item?.status || '').toLowerCase();
+        const hasLeave = !!(item?.leaveType || item?.leave_type);
+        const isHalf = st === 'half_day' || Boolean(item?.is_half_day || item?.isHalfDay || item?.is_half || item?.half_day);
+        if (st === 'leave' || st === 'pending_leave') {
+            summary.leaves += 1;
+        } else if (isHalf) {
+            summary.half_day += 1;
+            if (hasLeave) {
+                summary.leaves += 0.5;
+                summary.present += 0.5;
+            } else {
+                summary.present += 0.5;
+                summary.absent += 0.5;
+            }
+        } else if (hasLeave && (st === 'present' || st === 'late' || st === 'absent')) {
+            summary.leaves += 1;
+        } else if (st === 'present') summary.present += 1;
+        else if (st === 'late') {
+            summary.late += 1;
+            summary.present += 1;
+        } else if (st === 'absent') summary.absent += 1;
+        else if (st === 'weekly_off') summary.weeklyOff += 1;
+        else if (st === 'holiday') summary.holidays += 1;
+    }
+    return summary;
+};
+
 const IDENTITY_LEAVE_TYPES = new Set(['lwp', 'privilege']);
 // Missed-punch limit is now dynamic: shift duration + 4h buffer (see shiftUtils.js)
 
@@ -4188,17 +4226,35 @@ export const getEmployeeFullProfile = async (req, res) => {
             return policyByYear.get(year);
         };
 
-        const attendanceByDay = new Map((attendance || []).map((record) => [dateKeyLocal(record.attendance_date), record]));
+        const rangeStartKey = moment(start).tz('Asia/Kolkata').format('YYYY-MM-DD');
+        const rangeEndKey = moment(end).tz('Asia/Kolkata').format('YYYY-MM-DD');
+        const isKeyInRange = (key) => !!key && key >= rangeStartKey && key <= rangeEndKey;
 
-        // Ensure days with resolved/approved regularizations reflect the resolved data
+        // One stored row per Kolkata day. Extra rows for the same day were previously
+        // returned as well, so Present could exceed the number of days in the month.
+        const attendanceByDay = new Map();
+        for (const record of attendance || []) {
+            const key = dateKeyLocal(record.attendance_date);
+            if (!isKeyInRange(key)) continue;
+            const prev = attendanceByDay.get(key);
+            if (!prev) {
+                attendanceByDay.set(key, record);
+                continue;
+            }
+            const prevStamp = new Date(prev.updatedAt || prev.processed_at || prev.createdAt || 0).getTime();
+            const nextStamp = new Date(record.updatedAt || record.processed_at || record.createdAt || 0).getTime();
+            if (nextStamp >= prevStamp) attendanceByDay.set(key, record);
+        }
+
+        // Regularizations are loaded for the employee's full history. Apply only the
+        // ones whose Kolkata day is inside the requested month, using the same day key
+        // as attendance. Previously every other month was appended to this response.
         const resolvedRegsByDay = new Map();
         for (const reg of allRegularizations || []) {
-            if (reg.status === 'approved' || reg.is_resolved) {
-                const rDay = reg.attendance_date ? moment(reg.attendance_date).format('YYYY-MM-DD') : null;
-                if (rDay && !resolvedRegsByDay.has(rDay)) {
-                    resolvedRegsByDay.set(rDay, reg);
-                }
-            }
+            if (!(reg.status === 'approved' || reg.is_resolved)) continue;
+            const rDay = reg.attendance_date ? dateKeyLocal(reg.attendance_date) : null;
+            if (!isKeyInRange(rDay) || resolvedRegsByDay.has(rDay)) continue;
+            resolvedRegsByDay.set(rDay, reg);
         }
 
         for (const [rDay, reg] of resolvedRegsByDay.entries()) {
@@ -4225,10 +4281,9 @@ export const getEmployeeFullProfile = async (req, res) => {
                     ex.net_work_hours = parseFloat(workHours.toFixed(2));
                 }
             } else {
-                const dayDate = moment.tz(rDay, 'Asia/Kolkata').startOf('day').toDate();
-                const newRec = {
+                attendanceByDay.set(rDay, {
                     _id: `resolved-reg-${rDay}`,
-                    attendance_date: dayDate,
+                    attendance_date: moment.tz(rDay, 'YYYY-MM-DD', 'Asia/Kolkata').startOf('day').toDate(),
                     status: regStatus,
                     first_in: inTime,
                     last_out: outTime,
@@ -4237,16 +4292,14 @@ export const getEmployeeFullProfile = async (req, res) => {
                     is_regularized: true,
                     processed_by: 'regularization',
                     remarks: reg.reason || 'Resolved Regularization'
-                };
-                attendanceByDay.set(rDay, newRec);
-                attendance.push(newRec);
+                });
             }
         }
 
-        const continuityAttendance = [...(attendance || [])];
+        const activeLeaves = (leaves || []).filter(l => ['approved', 'pending'].includes(String(l.approval_status || l.status || '').toLowerCase()));
 
-        let dayCursor = moment(start).tz('Asia/Kolkata').startOf('day');
-        const dayEnd = moment(end).tz('Asia/Kolkata').endOf('day');
+        let dayCursor = moment.tz(rangeStartKey, 'YYYY-MM-DD', 'Asia/Kolkata').startOf('day');
+        const dayEnd = moment.tz(rangeEndKey, 'YYYY-MM-DD', 'Asia/Kolkata').endOf('day');
 
         while (dayCursor.isSameOrBefore(dayEnd, 'day')) {
             const dayStr = dayCursor.format('YYYY-MM-DD');
@@ -4264,12 +4317,9 @@ export const getEmployeeFullProfile = async (req, res) => {
 
             if (shouldIgnoreAutoPresentOnPolicyOff) {
                 attendanceByDay.delete(dayStr);
-                const existingIndex = continuityAttendance.findIndex((item) => String(item._id) === String(existingRecord._id));
-                if (existingIndex >= 0) continuityAttendance.splice(existingIndex, 1);
             }
 
-
-            const activeLeaves = leaves.filter(l => ['approved', 'pending'].includes(String(l.approval_status || l.status || '').toLowerCase()));
+            const dayRecord = attendanceByDay.get(dayStr);
             const leave = findLeaveForDateLocal(activeLeaves, dayCursor) || findLeaveForDateLocal(pendingLeaves, dayCursor);
 
             if (leave) {
@@ -4282,36 +4332,28 @@ export const getEmployeeFullProfile = async (req, res) => {
                     (isEndDay && leave.is_end_half_day)
                 );
                 const halfSession = leave.half_day_session || (isStartDay ? leave.start_half_session : null) || (isEndDay ? leave.end_half_session : null);
+                const leaveFields = {
+                    leaveType: leave.leave_type || null,
+                    leaveStatus: leave.approval_status || 'pending',
+                    half_day_session: halfSession,
+                    start_half_session: leave.start_half_session || null,
+                    end_half_session: leave.end_half_session || null,
+                    is_pending: isPending,
+                    leave_coverage: isHalfLeave ? 'half' : 'full'
+                };
 
-                if (!existingRecord || String(existingRecord.status).toLowerCase() === 'absent') {
-                    if (existingRecord) {
-                        attendanceByDay.delete(dayStr);
-                        const idx = continuityAttendance.findIndex(item => String(item._id) === String(existingRecord._id));
-                        if (idx >= 0) continuityAttendance.splice(idx, 1);
-                    }
-                    continuityAttendance.push({
+                if (!dayRecord || String(dayRecord.status || '').toLowerCase() === 'absent') {
+                    attendanceByDay.set(dayStr, {
                         _id: `virtual-leave-${dayStr}`,
                         attendance_date: dayCursor.toDate(),
                         status: isHalfLeave ? 'half_day' : 'leave',
-                        leaveType: leave.leave_type || null,
-                        leaveStatus: leave.approval_status || 'pending',
-                        half_day_session: halfSession,
-                        start_half_session: leave.start_half_session || null,
-                        end_half_session: leave.end_half_session || null,
+                        ...leaveFields,
                         remarks: isPending ? (leave.reason || 'Pending Leave Application') : (leave.reason || 'Approved Leave'),
-                        is_pending: isPending,
                         is_virtual: true
                     });
                 } else {
-                    // Merge leave info into existing record (e.g. half-day present)
-                    const existingStatus = String(existingRecord.status || '').toLowerCase();
-                    const isWorkingStatus = ['present', 'late', 'half_day'].includes(existingStatus);
-                    existingRecord.leaveType = leave.leave_type || null;
-                    existingRecord.leaveStatus = leave.approval_status || 'pending';
-                    existingRecord.is_pending = isPending;
-                    if (!isHalfLeave && !isWorkingStatus) {
-                        existingRecord.status = 'leave';
-                    }
+                    Object.assign(dayRecord, leaveFields);
+                    dayRecord.status = isHalfLeave ? 'half_day' : 'leave';
                 }
                 dayCursor.add(1, 'day');
                 continue;
@@ -4323,7 +4365,7 @@ export const getEmployeeFullProfile = async (req, res) => {
             }
 
             if (holidayStatus?.isHoliday) {
-                continuityAttendance.push({
+                attendanceByDay.set(dayStr, {
                     _id: `virtual-holiday-${dayStr}`,
                     attendance_date: dayCursor.toDate(),
                     status: 'holiday',
@@ -4331,7 +4373,7 @@ export const getEmployeeFullProfile = async (req, res) => {
                     is_virtual: true
                 });
             } else if (weekOffStatus?.isOff) {
-                continuityAttendance.push({
+                attendanceByDay.set(dayStr, {
                     _id: `virtual-weekoff-${dayStr}`,
                     attendance_date: dayCursor.toDate(),
                     status: 'weekly_off',
@@ -4339,7 +4381,7 @@ export const getEmployeeFullProfile = async (req, res) => {
                     is_virtual: true
                 });
             } else if (dayCursor.isSameOrBefore(moment().tz('Asia/Kolkata'), 'day')) {
-                continuityAttendance.push({
+                attendanceByDay.set(dayStr, {
                     _id: `virtual-absent-${dayStr}`,
                     attendance_date: dayCursor.toDate(),
                     status: 'absent',
@@ -4349,6 +4391,14 @@ export const getEmployeeFullProfile = async (req, res) => {
             }
 
             dayCursor.add(1, 'day');
+        }
+
+        const continuityAttendance = [];
+        const emitCursor = moment.tz(rangeStartKey, 'YYYY-MM-DD', 'Asia/Kolkata').startOf('day');
+        while (emitCursor.isSameOrBefore(dayEnd, 'day')) {
+            const row = attendanceByDay.get(emitCursor.format('YYYY-MM-DD'));
+            if (row) continuityAttendance.push(row);
+            emitCursor.add(1, 'day');
         }
 
         continuityAttendance.sort((a, b) => new Date(b.attendance_date) - new Date(a.attendance_date));
@@ -4364,16 +4414,28 @@ export const getEmployeeFullProfile = async (req, res) => {
         // team/dashboard views consistent when `is_half_day` is present on records.
         const normalizedAttendance = continuityAttendance.map((record) => {
             const rec = { ...record };
+            const leaveCoverage = rec.leave_coverage;
+            delete rec.leave_coverage;
             const isHalfFlag = Boolean(rec.is_half_day || rec.isHalfDay || rec.is_half || rec.half_day);
             const currentStatus = String(rec.status || '').toLowerCase();
-            if (isHalfFlag && currentStatus !== 'leave') {
+            if (isHalfFlag && currentStatus !== 'leave' && leaveCoverage !== 'full') {
                 rec.status = 'half_day';
             }
 
             const status = normalizeAttendanceStatus(rec, employee);
-            return status && status !== String(record.status || '').toLowerCase()
+            const next = status && status !== String(record.status || '').toLowerCase()
                 ? { ...rec, status }
                 : rec;
+            // Leave coverage wins over punch-hour normalization so a full-day leave
+            // is not counted as present, and a half-day leave stays a half day.
+            if (leaveCoverage === 'full') {
+                next.status = 'leave';
+                next.is_half_day = false;
+                next.isHalfDay = false;
+                next.is_half = false;
+                next.half_day = false;
+            } else if (leaveCoverage === 'half') next.status = 'half_day';
+            return next;
         });
 
         const startYear = moment(start).year();
@@ -4397,21 +4459,8 @@ export const getEmployeeFullProfile = async (req, res) => {
             };
         }));
 
-        // Calculate Summary for Scorecard
         const summary = {
-            present: normalizedAttendance.filter(a => a.status === 'present').length,
-            absent: normalizedAttendance.filter(a => a.status === 'absent').length,
-            late: normalizedAttendance.filter(a => a.status === 'late').length,
-            half_day: normalizedAttendance.filter(a => a.status === 'half_day').length,
-            leaves: leaves.filter(l => {
-                const f = new Date(l.from_date);
-                const t = new Date(l.to_date);
-                const inRange = (f >= start && f <= end) || (t >= start && t <= end);
-                const isApproved = String(l.approval_status || l.status || '').toLowerCase() === 'approved';
-                return inRange && isApproved;
-            }).length,
-            weeklyOff: normalizedAttendance.filter(a => a.status === 'weekly_off').length,
-            holidays: normalizedAttendance.filter(a => a.status === 'holiday').length,
+            ...tallyProfileAttendanceDays(normalizedAttendance),
             pendingLeaves: (pendingLeaves || []).length
         };
 

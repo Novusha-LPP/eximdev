@@ -4,6 +4,7 @@ import { UserContext } from "../../contexts/UserContext";
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import './kpi.scss';
+import { pendingSheetsForReviewer, landingPeriodForPending, countPendingInPeriod } from './KPIConstants';
 
 // Icons as simple SVG components to avoid MUI
 const Icons = {
@@ -99,11 +100,14 @@ const KPIHome = () => {
     useEffect(() => {
         fetchTemplates();
         fetchSheets();
-        fetchPendingCount();
         fetchTeamTemplates();
         fetchExtendedDeadline();
         fetchAnnouncement();
     }, []);
+
+    useEffect(() => {
+        fetchPendingCount();
+    }, [user?._id]);
 
     useEffect(() => {
         fetchHods();
@@ -138,8 +142,9 @@ const KPIHome = () => {
     const fetchPendingCount = async () => {
         try {
             const res = await axios.get(`${process.env.REACT_APP_API_STRING}/kpi/reviewer/pending`, { withCredentials: true });
-            const total = (res.data.counts?.check || 0) + (res.data.counts?.verify || 0) + (res.data.counts?.approve || 0);
-            setPendingReviewCount(total);
+            const grouped = pendingSheetsForReviewer(res.data, user?._id);
+            const period = landingPeriodForPending(grouped);
+            setPendingReviewCount(countPendingInPeriod(grouped, period.month, period.year).total);
         } catch (error) {
             console.error("Error fetching pending counts", error);
         }

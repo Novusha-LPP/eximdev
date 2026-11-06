@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useMemo } from 'react';
+import React, { useState, useEffect, useContext, useMemo, useRef } from 'react';
 import axios from 'axios';
 import { UserContext } from "../../contexts/UserContext";
 import { useNavigate } from 'react-router-dom';
@@ -12,6 +12,7 @@ import {
 
 import './kpi.scss';
 import KPISheet from './KPISheet';
+import { pendingSheetsForReviewer, landingPeriodForPending, countPendingInPeriod } from './KPIConstants';
 
 const Icons = {
     Check: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg>,
@@ -47,6 +48,7 @@ const KPIReviewerDashboard = () => {
     // Filter state
     const [filterMonth, setFilterMonth] = useState(new Date().getMonth() + 1);
     const [filterYear, setFilterYear] = useState(new Date().getFullYear());
+    const periodLocked = useRef(false);
 
     const months = ['January', 'February', 'March', 'April', 'May', 'June',
         'July', 'August', 'September', 'October', 'November', 'December'];
@@ -173,10 +175,27 @@ const KPIReviewerDashboard = () => {
             setLoading(true);
             const res = await axios.get(`${process.env.REACT_APP_API_STRING}/kpi/reviewer/pending`, { withCredentials: true });
             setData(res.data);
-            
+
+            let monthForHistory = filterMonth;
+            let yearForHistory = filterYear;
+
+            // First open only: land on the month the badge counted, and on the stage that has rows.
+            if (!periodLocked.current) {
+                const grouped = pendingSheetsForReviewer(res.data, user?._id);
+                const period = landingPeriodForPending(grouped);
+                const counts = countPendingInPeriod(grouped, period.month, period.year);
+                monthForHistory = period.month;
+                yearForHistory = period.year;
+                periodLocked.current = true;
+                setFilterMonth(period.month);
+                setFilterYear(period.year);
+                if (counts.check === 0 && counts.verify > 0) setActiveTab('verify');
+                else if (counts.check === 0 && counts.approve > 0) setActiveTab('approve');
+            }
+
             // If HOD or Admin, also fetch team history
             if (user?.role === 'Head_of_Department' || user?.role === 'Admin') {
-                fetchTeamHistory();
+                fetchTeamHistory(monthForHistory, yearForHistory);
             }
         } catch (error) {
             console.error("Failed to fetch pending sheets", error);
@@ -186,9 +205,9 @@ const KPIReviewerDashboard = () => {
         }
     };
 
-    const fetchTeamHistory = async () => {
+    const fetchTeamHistory = async (month = filterMonth, year = filterYear) => {
         try {
-            const res = await axios.get(`${process.env.REACT_APP_API_STRING}/kpi/hod/team-sheets?year=${filterYear}&month=${filterMonth}`, { withCredentials: true });
+            const res = await axios.get(`${process.env.REACT_APP_API_STRING}/kpi/hod/team-sheets?year=${year}&month=${month}`, { withCredentials: true });
             setTeamHistory(res.data);
         } catch (error) {
             console.error("Failed to fetch team history", error);
@@ -338,11 +357,12 @@ const KPIReviewerDashboard = () => {
     };
 
     const getActiveSheets = () => {
+        const grouped = pendingSheetsForReviewer(data, user?._id);
         let sheets = [];
         switch (activeTab) {
-            case 'check': sheets = data.pending_check; break;
-            case 'verify': sheets = data.pending_verify; break;
-            case 'approve': sheets = data.pending_approve; break;
+            case 'check': sheets = grouped.check; break;
+            case 'verify': sheets = grouped.verify; break;
+            case 'approve': sheets = grouped.approve; break;
             case 'team_history': sheets = teamHistory; break;
             default: sheets = [];
         }
@@ -358,8 +378,8 @@ const KPIReviewerDashboard = () => {
             });
         }
 
-        // Filter by date for all tabs
-        sheets = sheets.filter(s => s.month === filterMonth && s.year === filterYear);
+        // Filter by date for all tabs. Coerce so "10" and 10 stay the same month.
+        sheets = sheets.filter(s => Number(s.month) === Number(filterMonth) && Number(s.year) === Number(filterYear));
 
         if (activeTab === 'team_history') {
             return sheets.sort((a, b) => b.year - a.year || b.month - a.month); // Newest first
@@ -442,11 +462,9 @@ const KPIReviewerDashboard = () => {
     };
 
     const filteredCounts = useMemo(() => {
-        const check = data.pending_check.filter(s => s.month === filterMonth && s.year === filterYear).length;
-        const verify = data.pending_verify.filter(s => s.month === filterMonth && s.year === filterYear).length;
-        const approve = data.pending_approve.filter(s => s.month === filterMonth && s.year === filterYear).length;
-        return { check, verify, approve, total: check + verify + approve };
-    }, [data, filterMonth, filterYear]);
+        const grouped = pendingSheetsForReviewer(data, user?._id);
+        return countPendingInPeriod(grouped, filterMonth, filterYear);
+    }, [data, filterMonth, filterYear, user?._id]);
 
     const formatCurrency = (value) => {
         if (value >= 10000000) return `₹${(value / 10000000).toFixed(2)}Cr`;
@@ -607,14 +625,20 @@ const KPIReviewerDashboard = () => {
 
                         <select
                             value={filterMonth}
-                            onChange={(e) => setFilterMonth(Number(e.target.value))}
+                            onChange={(e) => {
+                                periodLocked.current = true;
+                                setFilterMonth(Number(e.target.value));
+                            }}
                             style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #e0e0e0', fontSize: '0.9rem', outline: 'none', background: 'white' }}
                         >
                             {months.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
                         </select>
                         <select
                             value={filterYear}
-                            onChange={(e) => setFilterYear(Number(e.target.value))}
+                            onChange={(e) => {
+                                periodLocked.current = true;
+                                setFilterYear(Number(e.target.value));
+                            }}
                             style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #e0e0e0', fontSize: '0.9rem', outline: 'none', background: 'white' }}
                         >
                             {[2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}

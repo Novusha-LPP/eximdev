@@ -166,3 +166,64 @@ export const ALL_BUSINESS_LOSS_TYPES = [
     ...BUSINESS_LOSS_CATEGORIES.flatMap(cat => cat.losses.map(l => `${cat.name}: ${l.type}`)),
     OTHER_BUSINESS_LOSS
 ];
+
+const ownerIdOf = (sheet) => {
+    if (!sheet?.user) return "";
+    if (typeof sheet.user === "object") return String(sheet.user._id || "");
+    return String(sheet.user);
+};
+
+// Pending-review queue for the signed-in reviewer.
+// Drops the reviewer's own sheet (HODs are stored as checker of their own KPI)
+// and a sheet that the API returned in more than one stage.
+export const pendingSheetsForReviewer = (data, reviewerId) => {
+    const reviewer = reviewerId ? String(reviewerId) : "";
+    const buckets = {
+        check: data?.pending_check || [],
+        verify: data?.pending_verify || [],
+        approve: data?.pending_approve || [],
+    };
+    const seen = new Set();
+    const result = { check: [], verify: [], approve: [] };
+
+    Object.keys(buckets).forEach((key) => {
+        buckets[key].forEach((sheet) => {
+            const id = sheet?._id ? String(sheet._id) : "";
+            if (!id || seen.has(id)) return;
+            if (reviewer && ownerIdOf(sheet) === reviewer) return;
+            seen.add(id);
+            result[key].push(sheet);
+        });
+    });
+
+    return result;
+};
+
+const inPeriod = (sheet, month, year) =>
+    Number(sheet.month) === Number(month) && Number(sheet.year) === Number(year);
+
+// Month the review screen opens on: this month when it has work, otherwise the latest month that does.
+export const landingPeriodForPending = (grouped, now = new Date()) => {
+    const all = [...grouped.check, ...grouped.verify, ...grouped.approve];
+    const month = now.getMonth() + 1;
+    const year = now.getFullYear();
+    if (!all.length || all.some((sheet) => inPeriod(sheet, month, year))) {
+        return { month, year };
+    }
+
+    return all.reduce((best, sheet) => {
+        const sheetYear = Number(sheet.year);
+        const sheetMonth = Number(sheet.month);
+        if (sheetYear > best.year || (sheetYear === best.year && sheetMonth > best.month)) {
+            return { month: sheetMonth, year: sheetYear };
+        }
+        return best;
+    }, { month: Number(all[0].month), year: Number(all[0].year) });
+};
+
+export const countPendingInPeriod = (grouped, month, year) => {
+    const check = grouped.check.filter((sheet) => inPeriod(sheet, month, year)).length;
+    const verify = grouped.verify.filter((sheet) => inPeriod(sheet, month, year)).length;
+    const approve = grouped.approve.filter((sheet) => inPeriod(sheet, month, year)).length;
+    return { check, verify, approve, total: check + verify + approve };
+};

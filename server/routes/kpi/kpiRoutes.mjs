@@ -1492,20 +1492,25 @@ router.get("/api/kpi/reviewer/pending", verifyToken, async (req, res) => {
         let pendingVerify = [];
         let pendingApprove = [];
 
+        // An HOD is assigned as checker of their own sheet. That sheet is not a
+        // team review, and counting it made the badge one higher than the queue.
+        const excludeOwnSheet = { user: { $ne: userId } };
+
         // Pending CHECK - SUBMITTED sheets
         // Normal users: only if assigned as checked_by
         // Shalini: can check any sheet
         // Suraj: can check any sheet
         // Admin: can check any sheet
         if (isShalini || isSuraj || isAdmin) {
-            pendingCheck = await KPISheet.find({ status: 'SUBMITTED' })
+            pendingCheck = await KPISheet.find({ status: 'SUBMITTED', ...excludeOwnSheet })
                 .populate('user', 'first_name last_name email')
                 .populate('template_version', 'name')
                 .sort({ updatedAt: -1 });
         } else {
             pendingCheck = await KPISheet.find({
                 'assigned_signatories.checked_by': userId,
-                status: 'SUBMITTED'
+                status: 'SUBMITTED',
+                ...excludeOwnSheet
             })
                 .populate('user', 'first_name last_name email')
                 .populate('template_version', 'name')
@@ -1517,14 +1522,15 @@ router.get("/api/kpi/reviewer/pending", verifyToken, async (req, res) => {
         // Suraj: can verify any sheet
         // Admin: can verify any sheet
         if (isShalini || isSuraj || isAdmin) {
-            pendingVerify = await KPISheet.find({ status: 'CHECKED' })
+            pendingVerify = await KPISheet.find({ status: 'CHECKED', ...excludeOwnSheet })
                 .populate('user', 'first_name last_name email')
                 .populate('template_version', 'name')
                 .sort({ updatedAt: -1 });
         } else {
             pendingVerify = await KPISheet.find({
                 'assigned_signatories.verified_by': userId,
-                status: 'CHECKED'
+                status: 'CHECKED',
+                ...excludeOwnSheet
             })
                 .populate('user', 'first_name last_name email')
                 .populate('template_version', 'name')
@@ -1535,14 +1541,15 @@ router.get("/api/kpi/reviewer/pending", verifyToken, async (req, res) => {
         // Suraj: can approve any sheet
         // Admin: can approve any sheet
         if (isSuraj || isAdmin) {
-            pendingApprove = await KPISheet.find({ status: 'VERIFIED' })
+            pendingApprove = await KPISheet.find({ status: 'VERIFIED', ...excludeOwnSheet })
                 .populate('user', 'first_name last_name email')
                 .populate('template_version', 'name')
                 .sort({ updatedAt: -1 });
         } else {
             pendingApprove = await KPISheet.find({
                 'assigned_signatories.approved_by': userId,
-                status: 'VERIFIED'
+                status: 'VERIFIED',
+                ...excludeOwnSheet
             })
                 .populate('user', 'first_name last_name email')
                 .populate('template_version', 'name')

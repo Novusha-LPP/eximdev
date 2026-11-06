@@ -4,7 +4,7 @@ import { UserContext } from "../../contexts/UserContext";
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import './kpi.scss';
-import { pendingSheetsForReviewer, landingPeriodForPending, countPendingInPeriod } from './KPIConstants';
+import { pendingSheetsForReviewer, landingPeriodForPending, countPendingInPeriod, isHodRole } from './KPIConstants';
 
 // Icons as simple SVG components to avoid MUI
 const Icons = {
@@ -156,7 +156,7 @@ const KPIHome = () => {
             let availableHods = res.data || [];
 
             // If user is HOD, include themselves in the dictionary
-            if (user?.role === 'Head_of_Department') {
+            if (isHodRole(user?.role)) {
                 const alreadyExists = availableHods.some(h => h._id === user._id);
                 if (!alreadyExists) {
                     availableHods.push({
@@ -412,7 +412,7 @@ const KPIHome = () => {
                                 <Icons.Dashboard /> Admin View
                             </button>
                         )}
-                        {(pendingReviewCount > 0 || user?.role === 'Head_of_Department' || user?.role === 'Admin') && (
+                        {(pendingReviewCount > 0 || isHodRole(user?.role) || user?.role === 'Admin') && (
                             <button className="modern-btn secondary" onClick={() => navigate('/kpi/reviews')} style={{ position: 'relative' }}>
                                 <Icons.Pending /> {pendingReviewCount > 0 ? 'Pending Reviews' : 'Review Dashboard'}
                                 {pendingReviewCount > 0 && (

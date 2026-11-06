@@ -12,7 +12,7 @@ import {
 
 import './kpi.scss';
 import KPISheet from './KPISheet';
-import { pendingSheetsForReviewer, landingPeriodForPending, countPendingInPeriod } from './KPIConstants';
+import { pendingSheetsForReviewer, landingPeriodForPending, countPendingInPeriod, isHodRole } from './KPIConstants';
 
 const Icons = {
     Check: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg>,
@@ -194,7 +194,7 @@ const KPIReviewerDashboard = () => {
             }
 
             // If HOD or Admin, also fetch team history
-            if (user?.role === 'Head_of_Department' || user?.role === 'Admin') {
+            if (isHodRole(user?.role) || user?.role === 'Admin') {
                 fetchTeamHistory(monthForHistory, yearForHistory);
             }
         } catch (error) {
@@ -558,7 +558,7 @@ const KPIReviewerDashboard = () => {
                     </div>
                 </div>
 
-                {(user?.role === 'Head_of_Department' || user?.role === 'Admin') && (
+                {(isHodRole(user?.role) || user?.role === 'Admin') && (
                     <div
                         className={`modern-stat-card ${activeTab === 'team_history' ? 'active' : ''}`}
                         onClick={() => setActiveTab('team_history')}

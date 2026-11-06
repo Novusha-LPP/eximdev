@@ -167,6 +167,11 @@ export const ALL_BUSINESS_LOSS_TYPES = [
     OTHER_BUSINESS_LOSS
 ];
 
+export const isHodRole = (role) => {
+    const normalized = String(role || '').trim().toLowerCase().replace(/[^a-z]/g, '');
+    return normalized === 'hod' || normalized === 'headofdepartment';
+};
+
 const ownerIdOf = (sheet) => {
     if (!sheet?.user) return "";
     if (typeof sheet.user === "object") return String(sheet.user._id || "");

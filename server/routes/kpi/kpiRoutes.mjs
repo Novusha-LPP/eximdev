@@ -1586,7 +1586,8 @@ router.get("/api/kpi/reviewer/pending", verifyToken, async (req, res) => {
 router.get("/api/kpi/hod/team-sheets", verifyToken, async (req, res) => {
     try {
         const isAdmin = req.user.role === 'Admin';
-        const isHOD = req.user.role === 'Head_of_Department';
+        const normalizedRole = String(req.user.role || '').trim().toLowerCase().replace(/[^a-z]/g, '');
+        const isHOD = normalizedRole === 'hod' || normalizedRole === 'headofdepartment';
 
         if (!isAdmin && !isHOD) {
             return res.status(403).json({ message: "HOD or Admin access required" });
